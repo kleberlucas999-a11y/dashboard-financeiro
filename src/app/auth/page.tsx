@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
-import { TrendingUp, Mail, Lock, Eye, EyeOff, Chrome, Loader2, AlertCircle } from 'lucide-react'
+import { TrendingUp, Mail, Lock, Eye, EyeOff, Globe, Loader2, AlertCircle } from 'lucide-react'
 
 type AuthMode = 'login' | 'register'
 
@@ -177,7 +177,7 @@ export default function AuthPage() {
           >
             {googleLoading
               ? <Loader2 size={16} className="animate-spin" />
-              : <Chrome size={16} className="text-[#8898aa]" />
+              : <Globe size={16} className="text-[#8898aa]" />
             }
             Entrar com Google
           </button>
