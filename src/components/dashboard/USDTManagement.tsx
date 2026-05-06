@@ -88,7 +88,7 @@ export function USDTManagement() {
         <Card className="border-[#26a17b]/40">
           <CardHeader><CardTitle>Entrada USDT — Maio 2025</CardTitle></CardHeader>
           <CardContent className="pt-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 bg-[#07090d] rounded-xl border border-[#1a2030]">
                 <p className="text-xs text-[#8898aa] mb-2">Bruto (plataforma)</p>
                 <p className="text-xl font-mono font-bold text-[#e8ecf4]">{formatUSDT(grossAmount)}</p>
@@ -135,7 +135,7 @@ export function USDTManagement() {
       )}
 
       {/* Top summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'USDT Líquido', value: formatUSDT(netAmount), sub: formatBRL(totalBRL), color: '#26a17b' },
           { label: 'Dízimo USDT (10%)', value: formatUSDT(usdtTithe), sub: formatBRL(usdtTithe * rate), color: '#f5a020' },

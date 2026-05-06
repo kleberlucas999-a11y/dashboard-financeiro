@@ -161,7 +161,7 @@ export function AlertsWidget() {
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Críticos', count: critical.length, color: '#f06060' },
           { label: 'Avisos', count: warnings.length, color: '#f5a020' },

@@ -117,7 +117,7 @@ function ReceivablesEditor() {
         </div>
       </CardHeader>
       <CardContent className="pt-2">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
           {/* Fixed income */}
           <EditableCard
@@ -312,7 +312,7 @@ export function OverviewWidget() {
       <ReceivablesEditor />
 
       {/* ─── Summary cards ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="hover:border-[#243048] transition-colors">
           <CardContent className="p-5">
             <p className="text-xs text-[#8898aa] uppercase tracking-wider mb-2">Renda Total</p>
@@ -484,7 +484,7 @@ export function OverviewWidget() {
       <Card>
         <CardHeader><CardTitle>Alocação 50-30-20 — Saldo Livre {formatBRL(freeBalance)}</CardTitle></CardHeader>
         <CardContent className="pt-4">
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             {[
               { label: 'Necessidades', pct: alloc.needsPercent, budget: needsBudget, spent: alloc.needsSpent, color: '#3b82f6' },
               { label: 'Desejos', pct: alloc.wantsPercent, budget: wantsBudget, spent: alloc.wantsSpent, color: '#8b5cf6' },

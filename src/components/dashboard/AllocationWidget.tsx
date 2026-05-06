@@ -100,8 +100,8 @@ export function AllocationWidget() {
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Free balance summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="col-span-2 lg:col-span-1 hover:border-[#243048] transition-colors">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="sm:col-span-2 lg:col-span-1 hover:border-[#243048] transition-colors">
           <CardContent className="p-5">
             <p className="text-xs text-[#8898aa] uppercase tracking-wider mb-2">Saldo Livre</p>
             <p className="text-2xl font-mono font-bold text-[#00d4a0]">{formatBRL(freeBalance)}</p>

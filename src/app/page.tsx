@@ -21,6 +21,8 @@ import { AdvisorWidget } from '@/components/dashboard/AdvisorWidget'
 import { ProfileWidget } from '@/components/dashboard/ProfileWidget'
 import { GuideWidget } from '@/components/dashboard/GuideWidget'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav'
+import { MobileDrawer } from '@/components/layout/MobileDrawer'
 
 const SECTION_TITLES: Record<string, string> = {
   overview: 'Visão Geral',
@@ -58,6 +60,7 @@ export default function Dashboard() {
   const { activeSection, userProfile, loadFromSupabase, syncToSupabase, userId } = useFinanceStore()
   const router = useRouter()
   const [initializing, setInitializing] = useState(true)
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
   const syncStatus = useSupabaseSync()
 
   useEffect(() => {
@@ -109,7 +112,15 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen overflow-hidden bg-[#07090d]">
       <ExchangeRatePoller />
-      <Sidebar />
+
+      {/* Sidebar — desktop only */}
+      <div className="hidden md:flex">
+        <Sidebar />
+      </div>
+
+      {/* Mobile drawer + bottom nav */}
+      <MobileDrawer open={mobileDrawerOpen} onClose={() => setMobileDrawerOpen(false)} />
+      <MobileBottomNav onOpenMenu={() => setMobileDrawerOpen(true)} />
 
       {/* Sync status indicator — bottom-right corner */}
       {syncStatus !== 'idle' && (
@@ -127,13 +138,13 @@ export default function Dashboard() {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header />
+        <Header onOpenMenu={() => setMobileDrawerOpen(true)} />
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-6">
           {/* Section header */}
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-[#e8ecf4]">{SECTION_TITLES[activeSection]}</h2>
-            <p className="text-sm text-[#4a5568] mt-0.5">{SECTION_SUBS[activeSection]}</p>
+          <div className="mb-4 md:mb-6">
+            <h2 className="text-lg md:text-xl font-bold text-[#e8ecf4]">{SECTION_TITLES[activeSection]}</h2>
+            <p className="text-xs md:text-sm text-[#4a5568] mt-0.5">{SECTION_SUBS[activeSection]}</p>
           </div>
 
           {/* Section content */}
