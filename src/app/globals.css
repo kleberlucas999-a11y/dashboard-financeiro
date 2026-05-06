@@ -1,26 +1,69 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Fira+Code:wght@300;400;500;600&display=swap');
+
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #07090d;
+  --bg-card: #0d1117;
+  --bg-card-hover: #111827;
+  --bg-input: #0a0e16;
+  --border: #1a2030;
+  --border-light: #243048;
+  --text-primary: #e8ecf4;
+  --text-secondary: #8898aa;
+  --text-muted: #4a5568;
+  --green: #00d4a0;
+  --green-dim: rgba(0, 212, 160, 0.1);
+  --amber: #f5a020;
+  --amber-dim: rgba(245, 160, 32, 0.1);
+  --red: #f06060;
+  --red-dim: rgba(240, 96, 96, 0.1);
+  --usdt: #26a17b;
+  --usdt-dim: rgba(38, 161, 123, 0.1);
+  --purple: #6366f1;
+  --blue: #3b82f6;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Syne', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-card); }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.animate-fade-in { animation: fadeIn 0.3s ease forwards; }
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+.font-fira { font-family: 'Fira Code', monospace !important; }
+.font-syne { font-family: 'Syne', sans-serif !important; }
+
+.gradient-text {
+  background: linear-gradient(135deg, #00d4a0, #26a17b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: #1a2030 !important;
 }

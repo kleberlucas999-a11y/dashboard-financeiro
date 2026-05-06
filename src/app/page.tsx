@@ -1,65 +1,94 @@
-import Image from "next/image";
+'use client'
+import { useFinanceStore } from '@/store/useFinanceStore'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { Header } from '@/components/layout/Header'
+import { OverviewWidget } from '@/components/dashboard/OverviewWidget'
+import { BillsManagement } from '@/components/dashboard/BillsManagement'
+import { USDTManagement } from '@/components/dashboard/USDTManagement'
+import { AllocationWidget } from '@/components/dashboard/AllocationWidget'
+import { MonthlyCalendar } from '@/components/dashboard/MonthlyCalendar'
+import { BankAccounts } from '@/components/dashboard/BankAccounts'
+import { MonthlyHistory } from '@/components/dashboard/MonthlyHistory'
+import { AlertsWidget } from '@/components/dashboard/AlertsWidget'
+import { PlanningWidget } from '@/components/dashboard/PlanningWidget'
+import { ExchangeRatePoller } from '@/components/dashboard/ExchangeRateWidget'
+import { GoalsWidget } from '@/components/dashboard/GoalsWidget'
+import { AdvisorWidget } from '@/components/dashboard/AdvisorWidget'
+import { ProfileWidget } from '@/components/dashboard/ProfileWidget'
+import { GuideWidget } from '@/components/dashboard/GuideWidget'
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 
-export default function Home() {
+const SECTION_TITLES: Record<string, string> = {
+  overview: 'Visão Geral',
+  bills: 'Gestão de Contas',
+  usdt: 'USDT & APY',
+  allocation: 'Alocação 50-30-20',
+  calendar: 'Calendário Mensal',
+  accounts: 'Contas Bancárias',
+  history: 'Histórico Mensal',
+  alerts: 'Alertas Inteligentes',
+  planning: 'Planejamento',
+  guide: 'Guia de Início Rápido',
+  goals: 'Metas Financeiras',
+  advisor: 'Advisor Financeiro',
+  profile: 'Meu Perfil',
+}
+
+const SECTION_SUBS: Record<string, string> = {
+  overview: 'Resumo financeiro do mês',
+  bills: 'CRUD de contas fixas e variáveis',
+  usdt: 'Câmbio, conversões e projeção APY',
+  allocation: 'Distribuição do saldo livre',
+  calendar: 'Eventos e vencimentos do mês',
+  accounts: 'Saldo por conta bancária',
+  history: 'Evolução mês a mês',
+  alerts: 'Notificações e recomendações',
+  planning: 'Insights, ordem de pagamento e estratégia mensal',
+  guide: 'Passo a passo para configurar o dashboard hoje',
+  goals: 'Rastreie e acelere seus objetivos financeiros',
+  advisor: 'Consultor pessoal com IA · baseado na sua situação real',
+  profile: 'Configurações pessoais e preferências',
+}
+
+export default function Dashboard() {
+  const { activeSection, userProfile } = useFinanceStore()
+
+  // Show onboarding wizard if not completed
+  if (!userProfile?.onboardingComplete) {
+    return <OnboardingWizard />
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="flex h-screen overflow-hidden bg-[#07090d]">
+      <ExchangeRatePoller />
+      <Sidebar />
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Header />
+
+        <main className="flex-1 overflow-y-auto p-6">
+          {/* Section header */}
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-[#e8ecf4]">{SECTION_TITLES[activeSection]}</h2>
+            <p className="text-sm text-[#4a5568] mt-0.5">{SECTION_SUBS[activeSection]}</p>
+          </div>
+
+          {/* Section content */}
+          {activeSection === 'overview' && <OverviewWidget />}
+          {activeSection === 'bills' && <BillsManagement />}
+          {activeSection === 'usdt' && <USDTManagement />}
+          {activeSection === 'allocation' && <AllocationWidget />}
+          {activeSection === 'calendar' && <MonthlyCalendar />}
+          {activeSection === 'accounts' && <BankAccounts />}
+          {activeSection === 'history' && <MonthlyHistory />}
+          {activeSection === 'alerts' && <AlertsWidget />}
+          {activeSection === 'planning' && <PlanningWidget />}
+          {activeSection === 'guide' && <GuideWidget />}
+          {activeSection === 'goals' && <GoalsWidget />}
+          {activeSection === 'advisor' && <AdvisorWidget />}
+          {activeSection === 'profile' && <ProfileWidget />}
+        </main>
+      </div>
     </div>
-  );
+  )
 }
