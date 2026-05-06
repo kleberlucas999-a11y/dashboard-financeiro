@@ -58,6 +58,7 @@ export function OnboardingWizard() {
   // Step 3
   const [riskProfile, setRiskProfile] = useState<RiskProfile>('moderado')
   // Step 4
+  const [hasTithe, setHasTithe] = useState(false)
   const [hasEmergencyFund, setHasEmergencyFund] = useState(false)
   const [emergencyFundMonths, setEmergencyFundMonths] = useState(0)
   const [estimatedTotalDebt, setEstimatedTotalDebt] = useState(0)
@@ -105,6 +106,7 @@ export function OnboardingWizard() {
       customInvest: budgetMethod === 'personalizado' ? customInvest : undefined,
       experience,
       advisorTone,
+      hasTithe,
       hasEmergencyFund,
       emergencyFundMonths,
       estimatedTotalDebt,
@@ -194,6 +196,18 @@ export function OnboardingWizard() {
       <div>
         <h2 className="text-xl font-bold text-[#e8ecf4] mb-1">Sua situação atual</h2>
         <p className="text-sm text-[#4a5568]">Usado para calcular metas e prioridades.</p>
+      </div>
+      <div className="space-y-3">
+        <label className="block text-sm font-medium text-[#e8ecf4]">Você pratica dízimo?</label>
+        <p className="text-xs text-[#4a5568]">Se sim, 10% do salário será automaticamente separado para a conta Dízimo.</p>
+        <div className="flex gap-3">
+          {([true, false] as const).map((v) => (
+            <button key={String(v)} onClick={() => setHasTithe(v)}
+              className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-medium cursor-pointer transition-all ${hasTithe === v ? 'border-[#f5a020] bg-[#f5a020]/10 text-[#f5a020]' : 'border-[#1a2030] text-[#8898aa]'}`}>
+              {v ? '🙏 Sim' : '❌ Não'}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="space-y-3">
         <label className="block text-sm font-medium text-[#e8ecf4]">Você tem reserva de emergência?</label>

@@ -39,6 +39,7 @@ export interface UserProfile {
   customInvest?: number
   experience: ExperienceLevel
   advisorTone: AdvisorTone
+  hasTithe: boolean
   hasEmergencyFund: boolean
   emergencyFundMonths: number
   estimatedTotalDebt: number

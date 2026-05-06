@@ -5,58 +5,12 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import {
   Bill, BillStatus, MonthlyData, ExchangeRate, USDTSettings,
   Allocation, AllocationKey, AllocationMovement, USDTConversion, BankTransaction,
-  UserProfile, FinancialGoal, AdvisorMessage,
+  UserProfile, FinancialGoal, AdvisorMessage, BankAccount,
 } from '@/types'
 import { generateId, getMonthId, parseMonthId } from '@/lib/utils'
 import { supabase } from '@/lib/supabase/client'
 
-// ─── Default bills (normal months) ──────────────────────────────────────────
-const DEFAULT_BILLS: Omit<Bill, 'id' | 'status'>[] = [
-  { name: 'Água', amount: 200, dueDay: 3, category: 'servico' },
-  { name: 'Cartão Principal', amount: 2500, dueDay: 9, category: 'cartao' },
-  { name: 'Condomínio', amount: 665, dueDay: 10, category: 'moradia' },
-  { name: 'Odontológico', amount: 48.48, dueDay: 15, category: 'saude' },
-  { name: 'Aluguel', amount: 1400, dueDay: 20, category: 'moradia' },
-  { name: 'Energia', amount: 315, dueDay: 20, category: 'servico', notes: 'Mover vencimento recomendado' },
-  { name: 'Plano de Saúde', amount: 846.46, dueDay: 25, category: 'saude' },
-  { name: 'Parcela Carro', amount: 1403, dueDay: 25, category: 'transporte' },
-  { name: 'Parcela Casa', amount: 2122.76, dueDay: 25, category: 'moradia' },
-  { name: 'Internet', amount: 84.99, dueDay: 25, category: 'servico' },
-  { name: 'Academia (2x)', amount: 139.98, dueDay: 27, category: 'saude' },
-  { name: 'Cartão 2', amount: 580, dueDay: 10, category: 'divida' },
-  { name: 'Empréstimo Pessoal', amount: 500, dueDay: 10, category: 'divida' },
-  { name: 'Mercado', amount: 1000, dueDay: 15, category: 'variavel', isVariable: true },
-  { name: 'Feiras', amount: 600, dueDay: 15, category: 'variavel', isVariable: true },
-  { name: 'Combustível', amount: 700, dueDay: 15, category: 'variavel', isVariable: true },
-  { name: 'Bebê', amount: 300, dueDay: 15, category: 'variavel', isVariable: true },
-]
-
-// ─── May 2025 bills ──────────────────────────────────────────────────────────
-const MAY_2025_BILLS: Omit<Bill, 'id' | 'status'>[] = [
-  { name: 'Água', amount: 200, dueDay: 3, category: 'servico' },
-  { name: 'Cartão Principal', amount: 2000, dueDay: 9, category: 'cartao', notes: 'Teto reduzido em maio para liberar mais USDT para APY' },
-  { name: 'Condomínio', amount: 665, dueDay: 10, category: 'moradia' },
-  { name: 'Odontológico', amount: 48.48, dueDay: 15, category: 'saude' },
-  { name: 'Aluguel', amount: 1400, dueDay: 20, category: 'moradia' },
-  { name: 'Energia', amount: 315, dueDay: 20, category: 'servico', notes: 'Mover vencimento recomendado' },
-  { name: 'Plano de Saúde', amount: 846.46, dueDay: 25, category: 'saude' },
-  { name: 'Parcela Carro', amount: 1403, dueDay: 25, category: 'transporte' },
-  { name: 'Parcela Casa', amount: 2122.76, dueDay: 25, category: 'moradia' },
-  { name: 'Internet', amount: 84.99, dueDay: 25, category: 'servico' },
-  { name: 'Academia (2x)', amount: 139.98, dueDay: 27, category: 'saude' },
-  { name: 'Cartão 2', amount: 580, dueDay: 10, category: 'divida' },
-  { name: 'Empréstimo Pessoal', amount: 500, dueDay: 10, category: 'divida' },
-  { name: 'Mercado', amount: 1000, dueDay: 15, category: 'variavel', isVariable: true },
-  { name: 'Feiras', amount: 600, dueDay: 15, category: 'variavel', isVariable: true },
-  { name: 'Combustível', amount: 700, dueDay: 15, category: 'variavel', isVariable: true },
-  { name: 'Bebê', amount: 300, dueDay: 15, category: 'variavel', isVariable: true },
-]
-
-// ─── April overdue bills shown in May ───────────────────────────────────────
-const APRIL_OVERDUE: Omit<Bill, 'id'>[] = [
-  { name: 'Plano de Saúde (abril — atrasado)', amount: 846.46, dueDay: 25, category: 'saude', status: 'pendente', notes: 'Venceu 25/04' },
-  { name: 'Odontológico (abril — atrasado)', amount: 48.48, dueDay: 15, category: 'saude', status: 'pendente', notes: 'Venceu 15/04' },
-]
+// ─── New users start with empty bills — they add their own ──────────────────
 
 const DEFAULT_USDT_SETTINGS: USDTSettings = {
   monthlyAmount: 2988,
@@ -81,45 +35,31 @@ const DEFAULT_ALLOCATION: Allocation = {
   needsSpent: 0, wantsSpent: 0, investSpent: 0, movements: [],
 }
 
-function createDefaultBankAccounts() {
-  return [
-    { id: generateId(), name: 'Operacional', type: 'operacional' as const, color: '#00d4a0', initialBalance: 0, transactions: [] },
-    { id: generateId(), name: 'USDT / APY', type: 'usdt' as const, color: '#26a17b', initialBalance: 0, transactions: [] },
-    { id: generateId(), name: 'Investimento BR', type: 'investimento' as const, color: '#6366f1', initialBalance: 0, transactions: [] },
-    { id: generateId(), name: 'Dízimo', type: 'dizimo' as const, color: '#f5a020', initialBalance: 0, transactions: [] },
+function createDefaultBankAccounts(hasTithe = false): BankAccount[] {
+  const accounts: BankAccount[] = [
+    { id: generateId(), name: 'Operacional', type: 'operacional', color: '#00d4a0', initialBalance: 0, transactions: [] },
+    { id: generateId(), name: 'USDT / APY', type: 'usdt', color: '#26a17b', initialBalance: 0, transactions: [] },
+    { id: generateId(), name: 'Investimento BR', type: 'investimento', color: '#6366f1', initialBalance: 0, transactions: [] },
   ]
+  if (hasTithe) {
+    accounts.push({ id: generateId(), name: 'Dízimo', type: 'dizimo', color: '#f5a020', initialBalance: 0, transactions: [] })
+  }
+  return accounts
 }
 
 function createDefaultMonth(year: number, month: number, exchangeRate: number): MonthlyData {
   const id = getMonthId(year, month)
   return {
     id, year, month,
-    fixedIncome: 10000,
-    fixedIncomeToCDB: false,  // salary stays as available cash; user allocates to CDB manually
+    fixedIncome: 0,
+    fixedIncomeToCDB: false,
     usdtSettings: { ...DEFAULT_USDT_SETTINGS },
     exchangeRate,
-    bills: DEFAULT_BILLS.map((b) => ({ ...b, id: generateId(), status: 'pendente' as BillStatus })),
+    bills: [],
     allocation: { ...DEFAULT_ALLOCATION, movements: [] },
     conversions: [],
     bankAccounts: createDefaultBankAccounts(),
     notes: '',
-  }
-}
-
-function createMay2025(): MonthlyData {
-  return {
-    id: '2025-05',
-    year: 2025, month: 5,
-    fixedIncome: 10000,
-    usdtSettings: { ...MAY_2025_USDT },
-    exchangeRate: 5.02,
-    fixedIncomeToCDB: false,
-    bills: MAY_2025_BILLS.map((b) => ({ ...b, id: generateId(), status: 'pendente' as BillStatus })),
-    overdueBills: APRIL_OVERDUE.map((b) => ({ ...b, id: generateId() })),
-    allocation: { ...DEFAULT_ALLOCATION, movements: [] },
-    conversions: [],
-    bankAccounts: createDefaultBankAccounts(),
-    notes: 'Maio 2025: salário disponível como caixa. Contas pagas via USDT. Desconto $967,63 viagem já aplicado.',
   }
 }
 
@@ -206,12 +146,14 @@ interface FinanceStore {
 export const useFinanceStore = create<FinanceStore>()(
   persist(
     (set, get) => {
-      const may2025 = createMay2025()
+      const now = new Date()
+      const initialMonthId = getMonthId(now.getFullYear(), now.getMonth() + 1)
+      const initialMonth = createDefaultMonth(now.getFullYear(), now.getMonth() + 1, 5.0)
 
       return {
-        months: { '2025-05': may2025 },
-        currentMonthId: '2025-05',
-        exchangeRate: { rate: 5.02, lastUpdated: new Date().toISOString(), isManual: false },
+        months: { [initialMonthId]: initialMonth },
+        currentMonthId: initialMonthId,
+        exchangeRate: { rate: 5.0, lastUpdated: new Date().toISOString(), isManual: false },
         sidebarOpen: true,
         activeSection: 'overview',
         userProfile: null,
@@ -264,7 +206,29 @@ export const useFinanceStore = create<FinanceStore>()(
 
         // ── Onboarding ──────────────────────────────────────────────────────
 
-        completeOnboarding: (profile) => set({ userProfile: { ...profile, onboardingComplete: true, onboardingCompletedAt: new Date().toISOString() } }),
+        completeOnboarding: (profile) => set((s) => {
+          // If user wants dízimo and no dízimo account exists yet, add one to all months
+          const months = { ...s.months }
+          if (profile.hasTithe) {
+            Object.keys(months).forEach((mid) => {
+              const month = months[mid]
+              const hasDizimo = month.bankAccounts.some((a) => a.type === 'dizimo')
+              if (!hasDizimo) {
+                months[mid] = {
+                  ...month,
+                  bankAccounts: [
+                    ...month.bankAccounts,
+                    { id: generateId(), name: 'Dízimo', type: 'dizimo' as const, color: '#f5a020', initialBalance: 0, transactions: [] },
+                  ],
+                }
+              }
+            })
+          }
+          return {
+            months,
+            userProfile: { ...profile, onboardingComplete: true, onboardingCompletedAt: new Date().toISOString() },
+          }
+        }),
 
         updateUserProfile: (updates) =>
           set((s) => ({ userProfile: s.userProfile ? { ...s.userProfile, ...updates } : null })),
@@ -475,28 +439,29 @@ export const useFinanceStore = create<FinanceStore>()(
           set((s) => {
             const month = s.months[monthId]
             if (!month) return s
-            const fixedIncome = month.fixedIncome || 10000
-            const tithe = Math.round(fixedIncome * 0.1 * 100) / 100
+            const fixedIncome = month.fixedIncome || 0
+            const hasTithe = s.userProfile?.hasTithe ?? false
+            const tithe = hasTithe ? Math.round(fixedIncome * 0.1 * 100) / 100 : 0
             const date = new Date().toISOString().slice(0, 10)
 
             const incomeAcc = month.bankAccounts.find((a) => a.id === incomeAccountId)
-            const dizimoAcc = month.bankAccounts.find((a) => a.type === 'dizimo')
-            if (!incomeAcc || !dizimoAcc) return s
+            if (!incomeAcc) return s
 
-            // Register: salary in + tithe out on chosen account; tithe in on Dízimo.
-            // CDB allocation is done manually by the user when they choose.
+            const dizimoAcc = hasTithe ? month.bankAccounts.find((a) => a.type === 'dizimo') : null
+            if (hasTithe && !dizimoAcc) return s
+
+            // Register: salary in on chosen account; if hasTithe, debit tithe and credit Dízimo account.
             const newAccounts = month.bankAccounts.map((acc) => {
               if (acc.id === incomeAcc.id) {
-                return {
-                  ...acc,
-                  transactions: [
-                    ...acc.transactions,
-                    { id: generateId(), date, description: `Salário — 5º dia útil`, amount: fixedIncome, type: 'entrada' as const, linkedBillId: '__salary__' },
-                    { id: generateId(), date, description: `Dízimo 10% — R$${tithe.toFixed(0)}`, amount: tithe, type: 'saida' as const, linkedBillId: '__salary__' },
-                  ],
+                const txs: BankTransaction[] = [
+                  { id: generateId(), date, description: `Salário — 5º dia útil`, amount: fixedIncome, type: 'entrada', linkedBillId: '__salary__' },
+                ]
+                if (hasTithe) {
+                  txs.push({ id: generateId(), date, description: `Dízimo 10% — R$${tithe.toFixed(0)}`, amount: tithe, type: 'saida', linkedBillId: '__salary__' })
                 }
+                return { ...acc, transactions: [...acc.transactions, ...txs] }
               }
-              if (acc.id === dizimoAcc.id) {
+              if (hasTithe && dizimoAcc && acc.id === dizimoAcc.id) {
                 return {
                   ...acc,
                   transactions: [
