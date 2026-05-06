@@ -1,5 +1,9 @@
 'use client'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useFinanceStore } from '@/store/useFinanceStore'
+import { supabase } from '@/lib/supabase/client'
+import { useSupabaseSync } from '@/hooks/useSupabaseSync'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { OverviewWidget } from '@/components/dashboard/OverviewWidget'
@@ -51,7 +55,51 @@ const SECTION_SUBS: Record<string, string> = {
 }
 
 export default function Dashboard() {
-  const { activeSection, userProfile } = useFinanceStore()
+  const { activeSection, userProfile, loadFromSupabase, syncToSupabase, userId } = useFinanceStore()
+  const router = useRouter()
+  const [initializing, setInitializing] = useState(true)
+  const syncStatus = useSupabaseSync()
+
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/auth'); return }
+
+      // Fetch user data from Supabase
+      const { data: row } = await supabase
+        .from('user_data')
+        .select('store_data')
+        .eq('user_id', user.id)
+        .single()
+
+      if (row?.store_data) {
+        // Load server data into store
+        loadFromSupabase(user.id, row.store_data)
+      } else {
+        // No server data yet — migrate localStorage data if it exists
+        loadFromSupabase(user.id, {})
+        // Immediately save current localStorage state to Supabase
+        setTimeout(() => syncToSupabase(), 500)
+      }
+
+      setInitializing(false)
+    }
+    init()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  if (initializing) {
+    return (
+      <div className="min-h-screen bg-[#07090d] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#00d4a0]/20 border border-[#00d4a0]/40 flex items-center justify-center animate-pulse">
+            <span className="text-[#00d4a0] text-lg font-bold">F</span>
+          </div>
+          <p className="text-sm text-[#4a5568]">Carregando seus dados...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Show onboarding wizard if not completed
   if (!userProfile?.onboardingComplete) {
@@ -62,6 +110,21 @@ export default function Dashboard() {
     <div className="flex h-screen overflow-hidden bg-[#07090d]">
       <ExchangeRatePoller />
       <Sidebar />
+
+      {/* Sync status indicator — bottom-right corner */}
+      {syncStatus !== 'idle' && (
+        <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+          syncStatus === 'saving' ? 'bg-[#0d1117] border-[#1a2030] text-[#4a5568]' :
+          syncStatus === 'saved'  ? 'bg-[#00d4a0]/10 border-[#00d4a0]/30 text-[#00d4a0]' :
+          'bg-[#f06060]/10 border-[#f06060]/30 text-[#f06060]'
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            syncStatus === 'saving' ? 'bg-[#4a5568] animate-pulse' :
+            syncStatus === 'saved'  ? 'bg-[#00d4a0]' : 'bg-[#f06060]'
+          }`} />
+          {syncStatus === 'saving' ? 'Salvando...' : syncStatus === 'saved' ? 'Salvo ✓' : 'Erro ao salvar'}
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header />

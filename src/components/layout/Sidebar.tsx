@@ -1,10 +1,12 @@
 'use client'
 import { cn } from '@/lib/utils'
 import { useFinanceStore } from '@/store/useFinanceStore'
+import { supabase } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Receipt, Bitcoin, PieChart, CalendarDays,
   Landmark, History, BellRing, ChevronLeft, ChevronRight,
-  TrendingUp, Map, Target, Bot, UserCircle, BookOpen,
+  TrendingUp, Map, Target, Bot, UserCircle, BookOpen, LogOut,
 } from 'lucide-react'
 
 const navItems = [
@@ -28,7 +30,14 @@ const personalItems = [
 ]
 
 export function Sidebar() {
-  const { sidebarOpen, activeSection, setSidebarOpen, setActiveSection } = useFinanceStore()
+  const { sidebarOpen, activeSection, setSidebarOpen, setActiveSection, userProfile, logout } = useFinanceStore()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    logout()
+    router.push('/auth')
+  }
 
   // When sidebar is collapsed, it expands on hover via CSS group
   const collapsed = !sidebarOpen
@@ -135,8 +144,40 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Toggle button */}
-      <div className="p-3 border-t border-[#1a2030]">
+      {/* User info + logout + toggle */}
+      <div className="p-3 border-t border-[#1a2030] space-y-1">
+        {/* User avatar + name */}
+        {userProfile && (
+          <div className={cn(
+            'flex items-center gap-2 px-2 py-2 rounded-lg',
+            collapsed && 'justify-center group-hover/sidebar:justify-start'
+          )}>
+            <div className="w-7 h-7 rounded-full bg-[#00d4a0]/20 border border-[#00d4a0]/40 flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-[#00d4a0]">
+                {userProfile.name?.charAt(0).toUpperCase() ?? 'U'}
+              </span>
+            </div>
+            <div className={cn('flex-1 min-w-0', collapsed && 'hidden group-hover/sidebar:block')}>
+              <p className="text-xs font-medium text-[#e8ecf4] truncate">{userProfile.name}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          className={cn(
+            'w-full flex items-center gap-2 py-2 px-3 rounded-lg',
+            'text-[#4a5568] hover:text-[#f06060] hover:bg-[#f06060]/10 transition-all cursor-pointer',
+            collapsed && 'justify-center group-hover/sidebar:justify-start'
+          )}
+          title={collapsed ? 'Sair' : undefined}
+        >
+          <LogOut size={15} className="shrink-0" />
+          <span className={collapsed ? 'hidden group-hover/sidebar:inline text-xs' : 'text-xs'}>Sair</span>
+        </button>
+
+        {/* Collapse toggle */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className={cn(

@@ -8,6 +8,7 @@ import {
   UserProfile, FinancialGoal, AdvisorMessage,
 } from '@/types'
 import { generateId, getMonthId, parseMonthId } from '@/lib/utils'
+import { supabase } from '@/lib/supabase/client'
 
 // ─── Default bills (normal months) ──────────────────────────────────────────
 const DEFAULT_BILLS: Omit<Bill, 'id' | 'status'>[] = [
@@ -131,6 +132,13 @@ interface FinanceStore {
   activeSection: string
   userProfile: UserProfile | null
 
+  // Auth / sync
+  userId: string | null
+  syncStatus: 'idle' | 'saving' | 'saved' | 'error'
+  loadFromSupabase: (userId: string, data: Partial<FinanceStore>) => void
+  syncToSupabase: () => Promise<void>
+  logout: () => void
+
   // Profile & onboarding
   completeOnboarding: (profile: UserProfile) => void
   updateUserProfile: (updates: Partial<UserProfile>) => void
@@ -207,6 +215,54 @@ export const useFinanceStore = create<FinanceStore>()(
         sidebarOpen: true,
         activeSection: 'overview',
         userProfile: null,
+        userId: null,
+        syncStatus: 'idle' as const,
+
+        // ── Auth / Supabase sync ────────────────────────────────────────────
+
+        loadFromSupabase: (userId, data) =>
+          set({
+            userId,
+            ...(data.months && { months: data.months }),
+            ...(data.userProfile !== undefined && { userProfile: data.userProfile }),
+            ...(data.currentMonthId && { currentMonthId: data.currentMonthId }),
+            ...(data.exchangeRate && { exchangeRate: data.exchangeRate }),
+            syncStatus: 'idle',
+          }),
+
+        syncToSupabase: async () => {
+          const state = get()
+          if (!state.userId) return
+          set({ syncStatus: 'saving' })
+          try {
+            const payload = {
+              months: state.months,
+              userProfile: state.userProfile,
+              currentMonthId: state.currentMonthId,
+              exchangeRate: state.exchangeRate,
+            }
+            const { error } = await supabase
+              .from('user_data')
+              .upsert({ user_id: state.userId, store_data: payload, updated_at: new Date().toISOString() })
+            set({ syncStatus: error ? 'error' : 'saved' })
+            // Reset to idle after 3s
+            setTimeout(() => set({ syncStatus: 'idle' }), 3000)
+          } catch {
+            set({ syncStatus: 'error' })
+          }
+        },
+
+        logout: () => {
+          set({
+            userId: null,
+            userProfile: null,
+            syncStatus: 'idle',
+          })
+          // Clear persisted localStorage
+          localStorage.removeItem('finance-dashboard-v2')
+        },
+
+        // ── Onboarding ──────────────────────────────────────────────────────
 
         completeOnboarding: (profile) => set({ userProfile: { ...profile, onboardingComplete: true, onboardingCompletedAt: new Date().toISOString() } }),
 
