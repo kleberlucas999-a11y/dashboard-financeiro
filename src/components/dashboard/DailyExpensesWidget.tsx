@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
-import { DailyExpense, DailyExpenseCategory, DailyExpenseConta, DailyExpenseTipo } from '@/types'
+import { Bill, DailyExpense, DailyExpenseCategory, DailyExpenseConta, DailyExpenseTipo } from '@/types'
 import { ImportWidget } from '@/components/dashboard/ImportWidget'
 import {
   Plus, Trash2, Utensils, Car, Smile, Heart, Wrench,
@@ -77,17 +77,40 @@ function fmtDate(dateStr: string) {
 
 // ─── Tipo breakdown cards ────────────────────────────────────────────────────
 
-function TipoCards({ expenses, rate, income, usdtIncomeBRL }: { expenses: DailyExpense[]; rate: number; income: number; usdtIncomeBRL: number }) {
-  const tipoTotals = useMemo(() => {
+function TipoCards({
+  expenses, bills, rate, income, usdtIncomeBRL,
+}: {
+  expenses: DailyExpense[]
+  bills: Bill[]
+  rate: number
+  income: number
+  usdtIncomeBRL: number
+}) {
+  // Daily expense totals by tipo
+  const dailyTotals = useMemo(() => {
     const map: Record<DailyExpenseTipo, number> = { custo: 0, lazer: 0, investimento: 0 }
     for (const e of expenses) {
-      const tipo: DailyExpenseTipo = e.tipo ?? 'custo'
-      map[tipo] += toBRL(e, rate)
+      map[e.tipo ?? 'custo'] += toBRL(e, rate)
     }
     return map
   }, [expenses, rate])
 
-  const totalGasto = tipoTotals.custo + tipoTotals.lazer + tipoTotals.investimento
+  // Active bills total (all non-quitado bills = committed expenses)
+  const billsTotal = useMemo(
+    () => bills.filter(b => b.status !== 'quitado').reduce((s, b) => s + b.amount, 0),
+    [bills]
+  )
+
+  // Despesas = fixed/variable bills + daily expenses marked as 'custo'
+  const despesasTotal = billsTotal + dailyTotals.custo
+
+  const tipoTotals: Record<DailyExpenseTipo, number> = {
+    custo:        despesasTotal,
+    lazer:        dailyTotals.lazer,
+    investimento: dailyTotals.investimento,
+  }
+
+  const totalGasto = despesasTotal + dailyTotals.lazer + dailyTotals.investimento
   const pct = (val: number) => income > 0 ? Math.round((val / income) * 100) : 0
 
   return (
@@ -107,7 +130,9 @@ function TipoCards({ expenses, rate, income, usdtIncomeBRL }: { expenses: DailyE
         <p className="text-[10px] text-[#4a5568] mt-1">
           Renda: {fmtBRL(income)}{usdtIncomeBRL > 0 ? ` + ${fmtBRL(usdtIncomeBRL)} USDT` : ''}
         </p>
-        <p className="text-[10px] text-[#1a2030] mt-1">{expenses.length} lançamento{expenses.length !== 1 ? 's' : ''}</p>
+        <p className="text-[10px] text-[#1a2030] mt-1">
+          {expenses.length} gasto{expenses.length !== 1 ? 's' : ''} + {bills.filter(b => b.status !== 'quitado').length} conta{bills.filter(b => b.status !== 'quitado').length !== 1 ? 's' : ''}
+        </p>
       </div>
 
       {/* By tipo */}
@@ -115,6 +140,8 @@ function TipoCards({ expenses, rate, income, usdtIncomeBRL }: { expenses: DailyE
         const { label, color, icon: Icon } = TIPO_CONFIG[tipo]
         const val = tipoTotals[tipo]
         const p = pct(val)
+        const isCusto = tipo === 'custo'
+
         return (
           <div key={tipo} className="bg-[#0d1117] border border-[#1a2030] rounded-xl p-4" style={{ borderLeftColor: color, borderLeftWidth: 3 }}>
             <div className="flex items-center gap-2 mb-2">
@@ -122,12 +149,18 @@ function TipoCards({ expenses, rate, income, usdtIncomeBRL }: { expenses: DailyE
               <span className="text-xs font-medium" style={{ color }}>{label}</span>
             </div>
             <p className="text-lg font-bold text-[#e8ecf4]">{fmtBRL(val)}</p>
+            {/* For Despesas: show bills + daily breakdown */}
+            {isCusto && (
+              <div className="flex gap-2 mt-1">
+                <span className="text-[10px] text-[#4a5568]">Contas: {fmtBRL(billsTotal)}</span>
+                <span className="text-[10px] text-[#1a2030]">·</span>
+                <span className="text-[10px] text-[#4a5568]">Diários: {fmtBRL(dailyTotals.custo)}</span>
+              </div>
+            )}
             {income > 0 ? (
               <div className="mt-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-[#4a5568]">{p}% da renda</span>
-                </div>
-                <div className="h-1 bg-[#1a2030] rounded-full overflow-hidden">
+                <span className="text-[10px] text-[#4a5568]">{p}% da renda</span>
+                <div className="h-1 bg-[#1a2030] rounded-full overflow-hidden mt-1">
                   <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(p, 100)}%`, background: color }} />
                 </div>
               </div>
@@ -375,6 +408,12 @@ export function DailyExpensesWidget() {
   const rate     = exchangeRate.rate
   const income   = month?.fixedIncome ?? 0
 
+  // All active bills + overdue bills (not quitado) for Despesas card
+  const allBills = useMemo(() => [
+    ...(month?.bills ?? []),
+    ...(month?.overdueBills ?? []),
+  ], [month])
+
   // Total income = salary + USDT converted (if received)
   const usdtReceived = month?.usdtSettings?.received !== false
   const usdtIncomeBRL = usdtReceived
@@ -528,8 +567,8 @@ export function DailyExpensesWidget() {
       {/* ── Import modal ──────────────────────────────────────────── */}
       {showImport && <ImportWidget onClose={() => setShowImport(false)} />}
 
-      {/* ── Tipo breakdown cards (based on ALL expenses, not filtered) ── */}
-      {expenses.length > 0 && <TipoCards expenses={expenses} rate={rate} income={totalIncome} usdtIncomeBRL={usdtIncomeBRL} />}
+      {/* ── Tipo breakdown cards (all expenses + all bills) ── */}
+      <TipoCards expenses={expenses} bills={allBills} rate={rate} income={totalIncome} usdtIncomeBRL={usdtIncomeBRL} />
 
       {/* ── Main content: list + category breakdown ────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
