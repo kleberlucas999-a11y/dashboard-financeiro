@@ -139,6 +139,7 @@ interface FinanceStore {
   addDailyExpense: (monthId: string, expense: Omit<DailyExpense, 'id'>) => void
   updateDailyExpense: (monthId: string, expenseId: string, updates: Partial<DailyExpense>) => void
   deleteDailyExpense: (monthId: string, expenseId: string) => void
+  deleteDailyExpenses: (monthId: string, expenseIds: string[]) => void
 
   setSidebarOpen: (open: boolean) => void
   setActiveSection: (section: string) => void
@@ -844,6 +845,27 @@ export const useFinanceStore = create<FinanceStore>()(
                   bankAccounts: month.bankAccounts.map((acc) => ({
                     ...acc,
                     transactions: acc.transactions.filter((tx) => tx.linkedBillId !== `__daily__${expenseId}`),
+                  })),
+                },
+              },
+            }
+          }),
+
+        deleteDailyExpenses: (monthId, expenseIds) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month || expenseIds.length === 0) return s
+            const toDelete = new Set(expenseIds)
+            const linkedIds = new Set(expenseIds.map((id) => `__daily__${id}`))
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...month,
+                  dailyExpenses: (month.dailyExpenses ?? []).filter((e) => !toDelete.has(e.id)),
+                  bankAccounts: month.bankAccounts.map((acc) => ({
+                    ...acc,
+                    transactions: acc.transactions.filter((tx) => !tx.linkedBillId || !linkedIds.has(tx.linkedBillId)),
                   })),
                 },
               },

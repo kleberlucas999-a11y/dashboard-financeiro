@@ -7,7 +7,7 @@ import {
   Plus, Trash2, Utensils, Car, Smile, Heart, Wrench,
   ShoppingBag, MoreHorizontal, Wallet, CreditCard, Bitcoin,
   ChevronDown, ChevronUp, Upload, Search, X, TrendingDown,
-  TrendingUp, BarChart3, Filter,
+  TrendingUp, BarChart3, Filter, CheckSquare, Square, CheckCheck,
 } from 'lucide-react'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -83,11 +83,10 @@ function TipoCards({
   expenses: DailyExpense[]
   bills: Bill[]
   rate: number
-  income: number       // totalIncome — used for % denominator
+  income: number
   usdtIncomeBRL: number
-  salary: number       // fixedIncome only — used for label
+  salary: number
 }) {
-  // Daily expense totals by tipo
   const dailyTotals = useMemo(() => {
     const map: Record<DailyExpenseTipo, number> = { custo: 0, lazer: 0, investimento: 0 }
     for (const e of expenses) {
@@ -96,15 +95,12 @@ function TipoCards({
     return map
   }, [expenses, rate])
 
-  // Active bills total (all non-quitado bills = committed expenses)
   const billsTotal = useMemo(
     () => bills.filter(b => b.status !== 'quitado').reduce((s, b) => s + b.amount, 0),
     [bills]
   )
 
-  // Despesas = fixed/variable bills + daily expenses marked as 'custo'
   const despesasTotal = billsTotal + dailyTotals.custo
-
   const tipoTotals: Record<DailyExpenseTipo, number> = {
     custo:        despesasTotal,
     lazer:        dailyTotals.lazer,
@@ -116,7 +112,6 @@ function TipoCards({
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      {/* Total gasto */}
       <div className="col-span-2 md:col-span-1 bg-[#0d1117] border border-[#1a2030] rounded-xl p-4">
         <div className="flex items-center gap-2 mb-2">
           <BarChart3 size={14} className="text-[#4a5568]" />
@@ -136,7 +131,6 @@ function TipoCards({
         </p>
       </div>
 
-      {/* By tipo */}
       {(['custo', 'lazer', 'investimento'] as DailyExpenseTipo[]).map((tipo) => {
         const { label, color, icon: Icon } = TIPO_CONFIG[tipo]
         const val = tipoTotals[tipo]
@@ -150,7 +144,6 @@ function TipoCards({
               <span className="text-xs font-medium" style={{ color }}>{label}</span>
             </div>
             <p className="text-lg font-bold text-[#e8ecf4]">{fmtBRL(val)}</p>
-            {/* For Despesas: show bills + daily breakdown */}
             {isCusto && (
               <div className="flex gap-2 mt-1">
                 <span className="text-[10px] text-[#4a5568]">Contas: {fmtBRL(billsTotal)}</span>
@@ -326,7 +319,16 @@ function AddExpenseForm({ monthId, onDone }: { monthId: string; onDone: () => vo
 
 // ─── Expense row ─────────────────────────────────────────────────────────────
 
-function ExpenseRow({ expense, monthId, rate }: { expense: DailyExpense; monthId: string; rate: number }) {
+function ExpenseRow({
+  expense, monthId, rate, selectMode, isSelected, onToggleSelect,
+}: {
+  expense: DailyExpense
+  monthId: string
+  rate: number
+  selectMode: boolean
+  isSelected: boolean
+  onToggleSelect: (id: string) => void
+}) {
   const { deleteDailyExpense } = useFinanceStore()
   const [confirming, setConfirming] = useState(false)
 
@@ -338,12 +340,25 @@ function ExpenseRow({ expense, monthId, rate }: { expense: DailyExpense; monthId
   const tipoColor = TIPO_CONFIG[tipo].color
 
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-[#0a0c11] last:border-0 group">
-      {/* Category icon */}
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-        style={{ background: `${color}18`, border: `1px solid ${color}33` }}>
-        <Icon size={14} style={{ color }} />
-      </div>
+    <div
+      onClick={selectMode ? () => onToggleSelect(expense.id) : undefined}
+      className={`flex items-center gap-3 py-3 border-b border-[#0a0c11] last:border-0 group transition-colors ${
+        selectMode ? 'cursor-pointer' : ''
+      } ${isSelected ? 'bg-[#f06060]/05' : selectMode ? 'hover:bg-[#1a2030]/40' : ''}`}
+    >
+      {/* Checkbox (select mode) or Category icon (normal mode) */}
+      {selectMode ? (
+        <div className="w-8 h-8 flex items-center justify-center shrink-0">
+          {isSelected
+            ? <CheckSquare size={18} className="text-[#f06060]" />
+            : <Square size={18} className="text-[#4a5568]" />}
+        </div>
+      ) : (
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: `${color}18`, border: `1px solid ${color}33` }}>
+          <Icon size={14} style={{ color }} />
+        </div>
+      )}
 
       {/* Info */}
       <div className="flex-1 min-w-0">
@@ -379,23 +394,26 @@ function ExpenseRow({ expense, monthId, rate }: { expense: DailyExpense; monthId
         )}
       </div>
 
-      {/* Delete */}
-      <div className="shrink-0 w-16 flex justify-end">
-        {confirming ? (
-          <div className="flex items-center gap-1">
-            <button onClick={() => deleteDailyExpense(monthId, expense.id)}
-              className="text-[10px] text-[#f06060] border border-[#f06060]/30 rounded px-1.5 py-0.5 hover:bg-[#f06060]/10 cursor-pointer">
-              Sim
+      {/* Delete (hidden in select mode) */}
+      {!selectMode && (
+        <div className="shrink-0 w-16 flex justify-end">
+          {confirming ? (
+            <div className="flex items-center gap-1">
+              <button onClick={(e) => { e.stopPropagation(); deleteDailyExpense(monthId, expense.id) }}
+                className="text-[10px] text-[#f06060] border border-[#f06060]/30 rounded px-1.5 py-0.5 hover:bg-[#f06060]/10 cursor-pointer">
+                Sim
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
+                className="text-[10px] text-[#4a5568] cursor-pointer hover:text-[#e8ecf4]">✕</button>
+            </div>
+          ) : (
+            <button onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
+              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#4a5568] hover:text-[#f06060] hover:bg-[#f06060]/10 transition-all cursor-pointer">
+              <Trash2 size={13} />
             </button>
-            <button onClick={() => setConfirming(false)} className="text-[10px] text-[#4a5568] cursor-pointer hover:text-[#e8ecf4]">✕</button>
-          </div>
-        ) : (
-          <button onClick={() => setConfirming(true)}
-            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#4a5568] hover:text-[#f06060] hover:bg-[#f06060]/10 transition-all cursor-pointer">
-            <Trash2 size={13} />
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -403,29 +421,23 @@ function ExpenseRow({ expense, monthId, rate }: { expense: DailyExpense; monthId
 // ─── Main widget ─────────────────────────────────────────────────────────────
 
 export function DailyExpensesWidget() {
-  const { currentMonthId, months, exchangeRate } = useFinanceStore()
+  const { currentMonthId, months, exchangeRate, deleteDailyExpenses } = useFinanceStore()
   const month    = months[currentMonthId]
   const expenses = useMemo(() => month?.dailyExpenses ?? [], [month])
 
-  // Always use the month-specific exchange rate (set when the user configured that month)
-  // Fall back to the live global rate only if not set
   const rate   = month?.exchangeRate || exchangeRate.rate
   const salary = month?.fixedIncome ?? 0
 
-  // All active bills + overdue bills for Despesas card
   const allBills = useMemo(() => [
     ...(month?.bills ?? []),
     ...(month?.overdueBills ?? []),
   ], [month])
 
-  // Total income = salary + USDT received this month (converted at month-specific rate)
-  // USDT only counts if the user clicked "Recebi!" (received !== false)
   const usdtReceived  = month?.usdtSettings?.received !== false
   const usdtIncomeBRL = usdtReceived
     ? Math.round((month?.usdtSettings?.monthlyAmount ?? 0) * rate * 100) / 100
     : 0
   const totalIncome = salary + usdtIncomeBRL
-  const income = totalIncome   // alias passed to TipoCards for % calculation
 
   const [showForm,   setShowForm]   = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -439,6 +451,11 @@ export function DailyExpensesWidget() {
   const [dateTo,      setDateTo]      = useState('')
   const [sortDesc,    setSortDesc]    = useState(true)
   const [showFilters, setShowFilters] = useState(false)
+
+  // ── Multi-select ─────────────────────────────────────────────────────────
+  const [selectMode,   setSelectMode]   = useState(false)
+  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set())
+  const [confirmBulk,  setConfirmBulk]  = useState(false)
 
   const hasActiveFilter = search || filterTipo !== 'todas' || filterCat !== 'todas' || filterConta !== 'todas' || dateFrom || dateTo
 
@@ -462,50 +479,153 @@ export function DailyExpensesWidget() {
     return list
   }, [expenses, search, filterTipo, filterCat, filterConta, dateFrom, dateTo, sortDesc])
 
+  const allFilteredSelected = filtered.length > 0 && filtered.every(e => selectedIds.has(e.id))
+  const someSelected = selectedIds.size > 0
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filtered.map(e => e.id)))
+    }
+  }
+
+  const enterSelectMode = () => {
+    setSelectMode(true)
+    setSelectedIds(new Set())
+    setConfirmBulk(false)
+    setShowForm(false)
+    setShowImport(false)
+  }
+
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+    setConfirmBulk(false)
+  }
+
+  const handleBulkDelete = () => {
+    deleteDailyExpenses(currentMonthId, Array.from(selectedIds))
+    exitSelectMode()
+  }
+
+  // Total value of selected items
+  const selectedTotal = useMemo(() => {
+    return filtered
+      .filter(e => selectedIds.has(e.id))
+      .reduce((s, e) => s + toBRL(e, rate), 0)
+  }, [filtered, selectedIds, rate])
+
   return (
     <div className="space-y-4">
 
       {/* ── Header actions ──────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button onClick={() => { setShowForm(v => !v); setShowImport(false) }}
-          className="flex items-center gap-2 bg-[#00d4a0]/10 hover:bg-[#00d4a0]/20 border border-[#00d4a0]/30 text-[#00d4a0] text-sm font-semibold px-4 py-2 rounded-lg transition-all cursor-pointer">
-          <Plus size={15} /> Novo gasto
-        </button>
-
-        <button onClick={() => { setShowImport(v => !v); setShowForm(false) }}
-          className="flex items-center gap-2 border border-[#1a2030] text-[#8898aa] hover:text-[#00d4a0] hover:border-[#00d4a0]/40 text-sm px-3 py-2 rounded-lg transition-all cursor-pointer">
-          <Upload size={14} /> Importar planilha
-        </button>
-
-        <button onClick={() => setShowFilters(v => !v)}
-          className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-all cursor-pointer ${
-            showFilters || hasActiveFilter
-              ? 'bg-[#6366f1]/10 border-[#6366f1]/30 text-[#6366f1]'
-              : 'border-[#1a2030] text-[#4a5568] hover:text-[#e8ecf4]'
-          }`}>
-          <Filter size={14} />
-          Filtros
-          {hasActiveFilter && <span className="w-1.5 h-1.5 rounded-full bg-[#6366f1]" />}
-        </button>
-
-        <button onClick={() => setSortDesc(v => !v)}
-          className="flex items-center gap-1.5 text-xs text-[#4a5568] hover:text-[#e8ecf4] border border-[#1a2030] px-3 py-2 rounded-lg cursor-pointer transition-all">
-          {sortDesc ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
-          {sortDesc ? 'Mais recente' : 'Mais antigo'}
-        </button>
-
-        {hasActiveFilter && (
-          <button onClick={clearFilters}
-            className="flex items-center gap-1 text-xs text-[#f5a020] hover:text-[#f5a020]/80 transition-all cursor-pointer">
-            <X size={12} /> Limpar filtros
+      {!selectMode ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => { setShowForm(v => !v); setShowImport(false) }}
+            className="flex items-center gap-2 bg-[#00d4a0]/10 hover:bg-[#00d4a0]/20 border border-[#00d4a0]/30 text-[#00d4a0] text-sm font-semibold px-4 py-2 rounded-lg transition-all cursor-pointer">
+            <Plus size={15} /> Novo gasto
           </button>
-        )}
-      </div>
+
+          <button onClick={() => { setShowImport(v => !v); setShowForm(false) }}
+            className="flex items-center gap-2 border border-[#1a2030] text-[#8898aa] hover:text-[#00d4a0] hover:border-[#00d4a0]/40 text-sm px-3 py-2 rounded-lg transition-all cursor-pointer">
+            <Upload size={14} /> Importar planilha
+          </button>
+
+          <button onClick={() => setShowFilters(v => !v)}
+            className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg border transition-all cursor-pointer ${
+              showFilters || hasActiveFilter
+                ? 'bg-[#6366f1]/10 border-[#6366f1]/30 text-[#6366f1]'
+                : 'border-[#1a2030] text-[#4a5568] hover:text-[#e8ecf4]'
+            }`}>
+            <Filter size={14} />
+            Filtros
+            {hasActiveFilter && <span className="w-1.5 h-1.5 rounded-full bg-[#6366f1]" />}
+          </button>
+
+          <button onClick={() => setSortDesc(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-[#4a5568] hover:text-[#e8ecf4] border border-[#1a2030] px-3 py-2 rounded-lg cursor-pointer transition-all">
+            {sortDesc ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+            {sortDesc ? 'Mais recente' : 'Mais antigo'}
+          </button>
+
+          {expenses.length > 0 && (
+            <button onClick={enterSelectMode}
+              className="flex items-center gap-1.5 text-xs text-[#4a5568] hover:text-[#f06060] border border-[#1a2030] hover:border-[#f06060]/30 px-3 py-2 rounded-lg cursor-pointer transition-all ml-auto">
+              <CheckSquare size={13} /> Selecionar
+            </button>
+          )}
+
+          {hasActiveFilter && (
+            <button onClick={clearFilters}
+              className="flex items-center gap-1 text-xs text-[#f5a020] hover:text-[#f5a020]/80 transition-all cursor-pointer">
+              <X size={12} /> Limpar filtros
+            </button>
+          )}
+        </div>
+      ) : (
+        /* ── Selection mode toolbar ─────────────────────────────────── */
+        <div className="flex flex-wrap items-center gap-2 p-3 bg-[#0d1117] border border-[#f06060]/20 rounded-xl">
+          {/* Toggle all */}
+          <button onClick={toggleSelectAll}
+            className="flex items-center gap-1.5 text-xs text-[#8898aa] hover:text-[#e8ecf4] px-2 py-1.5 rounded-lg border border-[#1a2030] hover:border-[#243048] cursor-pointer transition-all">
+            <CheckCheck size={13} />
+            {allFilteredSelected ? 'Desmarcar todos' : `Selecionar todos (${filtered.length})`}
+          </button>
+
+          {/* Selection info */}
+          {someSelected && (
+            <span className="text-xs text-[#8898aa] flex items-center gap-1.5">
+              <span className="font-semibold text-[#e8ecf4]">{selectedIds.size}</span> selecionado{selectedIds.size !== 1 ? 's' : ''}
+              <span className="text-[#4a5568]">·</span>
+              <span className="font-mono text-[#f06060]">{fmtBRL(selectedTotal)}</span>
+            </span>
+          )}
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Confirm delete */}
+            {someSelected && !confirmBulk && (
+              <button onClick={() => setConfirmBulk(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-[#f06060] bg-[#f06060]/10 hover:bg-[#f06060]/20 border border-[#f06060]/30 px-3 py-1.5 rounded-lg cursor-pointer transition-all">
+                <Trash2 size={13} /> Excluir {selectedIds.size}
+              </button>
+            )}
+
+            {/* Final confirm */}
+            {confirmBulk && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#f06060]/15 border border-[#f06060]/40 rounded-lg">
+                <span className="text-xs text-[#f06060] font-medium">Confirmar exclusão de {selectedIds.size} gasto{selectedIds.size !== 1 ? 's' : ''}?</span>
+                <button onClick={handleBulkDelete}
+                  className="text-xs font-bold text-[#f06060] hover:text-white bg-[#f06060]/20 hover:bg-[#f06060] px-2 py-0.5 rounded cursor-pointer transition-all">
+                  Sim
+                </button>
+                <button onClick={() => setConfirmBulk(false)}
+                  className="text-xs text-[#4a5568] hover:text-[#e8ecf4] cursor-pointer transition-all">
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Cancel selection */}
+            <button onClick={exitSelectMode}
+              className="flex items-center gap-1 text-xs text-[#4a5568] hover:text-[#e8ecf4] px-2 py-1.5 rounded-lg border border-[#1a2030] cursor-pointer transition-all">
+              <X size={12} /> Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Filters panel ─────────────────────────────────────────── */}
-      {showFilters && (
+      {showFilters && !selectMode && (
         <div className="bg-[#0d1117] border border-[#1a2030] rounded-xl p-4 space-y-3">
-          {/* Search */}
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a5568]" />
             <input
@@ -518,19 +638,16 @@ export function DailyExpensesWidget() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {/* Date from */}
             <div>
               <label className="text-xs text-[#4a5568] block mb-1">De</label>
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                 className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-2 py-2 text-xs text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50" />
             </div>
-            {/* Date to */}
             <div>
               <label className="text-xs text-[#4a5568] block mb-1">Até</label>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
                 className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-2 py-2 text-xs text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50" />
             </div>
-            {/* Tipo */}
             <div>
               <label className="text-xs text-[#4a5568] block mb-1">Tipo</label>
               <select value={filterTipo} onChange={e => setFilterTipo(e.target.value as DailyExpenseTipo | 'todas')}
@@ -541,7 +658,6 @@ export function DailyExpensesWidget() {
                 <option value="investimento">Investimentos</option>
               </select>
             </div>
-            {/* Category */}
             <div>
               <label className="text-xs text-[#4a5568] block mb-1">Categoria</label>
               <select value={filterCat} onChange={e => setFilterCat(e.target.value as DailyExpenseCategory | 'todas')}
@@ -552,7 +668,6 @@ export function DailyExpensesWidget() {
                 ))}
               </select>
             </div>
-            {/* Conta */}
             <div>
               <label className="text-xs text-[#4a5568] block mb-1">Conta</label>
               <select value={filterConta} onChange={e => setFilterConta(e.target.value as DailyExpenseConta | 'todas')}
@@ -573,18 +688,21 @@ export function DailyExpensesWidget() {
       {/* ── Import modal ──────────────────────────────────────────── */}
       {showImport && <ImportWidget onClose={() => setShowImport(false)} />}
 
-      {/* ── Tipo breakdown cards (all expenses + all bills) ── */}
+      {/* ── Tipo breakdown cards ── */}
       <TipoCards expenses={expenses} bills={allBills} rate={rate} income={totalIncome} usdtIncomeBRL={usdtIncomeBRL} salary={salary} />
 
       {/* ── Main content: list + category breakdown ────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-        {/* Expense list (2/3 width on desktop) */}
+        {/* Expense list */}
         <div className="md:col-span-2 bg-[#0d1117] border border-[#1a2030] rounded-xl">
           <div className="px-4 py-3 border-b border-[#1a2030] flex items-center justify-between">
             <h3 className="text-sm font-semibold text-[#e8ecf4]">
               Lançamentos
               {hasActiveFilter && <span className="ml-2 text-xs font-normal text-[#6366f1]">filtrado</span>}
+              {selectMode && someSelected && (
+                <span className="ml-2 text-xs font-normal text-[#f06060]">{selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}</span>
+              )}
             </h3>
             <span className="text-xs text-[#4a5568]">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</span>
           </div>
@@ -604,12 +722,22 @@ export function DailyExpensesWidget() {
             </div>
           ) : (
             <div className="px-4 divide-y divide-[#0a0c11]">
-              {filtered.map(e => <ExpenseRow key={e.id} expense={e} monthId={currentMonthId} rate={rate} />)}
+              {filtered.map(e => (
+                <ExpenseRow
+                  key={e.id}
+                  expense={e}
+                  monthId={currentMonthId}
+                  rate={rate}
+                  selectMode={selectMode}
+                  isSelected={selectedIds.has(e.id)}
+                  onToggleSelect={toggleSelect}
+                />
+              ))}
             </div>
           )}
         </div>
 
-        {/* Category breakdown (1/3 width on desktop) */}
+        {/* Category breakdown */}
         <div>
           <CategoryBreakdown expenses={filtered.length > 0 ? filtered : expenses} rate={rate} />
         </div>
