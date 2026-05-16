@@ -1,7 +1,7 @@
 data,descricao,valor,categoria,tipo,conta,status
 12/05/2025,Uber,45.00,transporte,custo,cartao_credito,pago
-13/05/2025,Mercado Extra,320.00,variavel,custo,operacional,pago
-14/05/2025,Netflix,59.90,servico,lazer,cartao_credito,pago
+13/05/2025,Mercado Extra,320.00,alimentacao,custo,operacional,pago
+14/05/2025,Netflix,59.90,lazer,lazer,cartao_credito,pago
 15/05/2025,Farmácia,85.00,saude,custo,operacional,pago
 15/05/2025,Binance Fee,12.50,servico,custo,usdt,pago
-16/05/2025,CDB Nubank,500.00,variavel,investimento,operacional,pago
+16/05/2025,CDB Nubank,500.00,outro,investimento,operacional,pago

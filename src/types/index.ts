@@ -123,6 +123,7 @@ export interface USDTSettings {
 
 export type DailyExpenseCategory = 'alimentacao' | 'transporte' | 'lazer' | 'saude' | 'servico' | 'compras' | 'outro'
 export type DailyExpenseConta = 'operacional' | 'usdt' | 'cartao_credito'
+export type DailyExpenseTipo = 'custo' | 'lazer' | 'investimento'
 
 export interface DailyExpense {
   id: string
@@ -131,6 +132,7 @@ export interface DailyExpense {
   amount: number         // always in native currency (USDT for usdt, BRL otherwise)
   category: DailyExpenseCategory
   conta: DailyExpenseConta
+  tipo?: DailyExpenseTipo  // custo = Despesas, lazer = Lazer, investimento = Investimentos
   notes?: string
 }
 

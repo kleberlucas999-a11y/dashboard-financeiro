@@ -1,14 +1,14 @@
 'use client'
 import { useState, useRef, useCallback } from 'react'
 import { useFinanceStore, ImportRow } from '@/store/useFinanceStore'
-import { BillCategory } from '@/types'
+import { DailyExpenseCategory } from '@/types'
 import { formatBRL } from '@/lib/utils'
 import { Upload, X, Download, CheckCircle, AlertCircle, FileSpreadsheet, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── CSV Parser ───────────────────────────────────────────────────────────────
 
-const VALID_CATEGORIES: BillCategory[] = ['moradia','saude','servico','transporte','cartao','divida','variavel']
+const VALID_CATEGORIES: DailyExpenseCategory[] = ['alimentacao','transporte','lazer','saude','servico','compras','outro']
 const VALID_TIPOS = ['custo','lazer','investimento']
 const VALID_CONTAS = ['operacional','usdt','cartao_credito']
 
@@ -51,8 +51,8 @@ function parseCSV(text: string): ParsedRow[] {
 
     if (!descricao?.trim()) errors.push('Descrição obrigatória')
 
-    const cat = (categoria ?? '').toLowerCase() as BillCategory
-    if (!VALID_CATEGORIES.includes(cat)) errors.push(`Categoria inválida: "${categoria}"`)
+    const cat = (categoria ?? '').toLowerCase() as DailyExpenseCategory
+    if (!VALID_CATEGORIES.includes(cat)) errors.push(`Categoria inválida: "${categoria}" (use: alimentacao, transporte, lazer, saude, servico, compras, outro)`)
 
     const tip = (tipo ?? '').toLowerCase()
     if (!VALID_TIPOS.includes(tip)) errors.push(`Tipo inválido: "${tipo}"`)
@@ -66,7 +66,7 @@ function parseCSV(text: string): ParsedRow[] {
       date: date ?? '',
       description: descricao?.trim() ?? '',
       amount: isNaN(amount) ? 0 : amount,
-      category: VALID_CATEGORIES.includes(cat) ? cat : 'variavel',
+      category: VALID_CATEGORIES.includes(cat) ? cat : 'outro',
       tipo: VALID_TIPOS.includes(tip) ? tip as ImportRow['tipo'] : 'custo',
       conta: VALID_CONTAS.includes(cnt) ? cnt as ImportRow['conta'] : 'operacional',
       status: status === 'pendente' ? 'pendente' : 'pago',
@@ -209,7 +209,7 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
                     { col: 'data', ex: '12/05/2025' },
                     { col: 'descricao', ex: 'Uber' },
                     { col: 'valor', ex: '45.00' },
-                    { col: 'categoria', ex: 'transporte' },
+                    { col: 'categoria', ex: 'alimentacao / transporte / lazer / saude / servico / compras / outro' },
                     { col: 'tipo', ex: 'custo / lazer / investimento' },
                     { col: 'conta', ex: 'operacional / usdt / cartao_credito' },
                     { col: 'status', ex: 'pago / pendente' },
@@ -343,7 +343,7 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
                 </p>
               </div>
               <button onClick={onClose} className="px-6 py-2.5 rounded-xl bg-[#00d4a0] text-[#07090d] font-semibold text-sm hover:bg-[#00bfa0] cursor-pointer transition-all">
-                Ver na lista de contas
+                Ver nos Gastos Diários
               </button>
             </div>
           )}
