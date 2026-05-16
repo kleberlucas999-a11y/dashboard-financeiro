@@ -20,16 +20,6 @@ const DEFAULT_USDT_SETTINGS: USDTSettings = {
   received: false, // começa como não-recebido; usuário confirma quando cair na conta
 }
 
-const MAY_2025_USDT: USDTSettings = {
-  grossAmount: 4975,
-  discount: 967.63,
-  discountLabel: 'Viagem (descontado na plataforma)',
-  monthlyAmount: 4975 - 967.63,
-  apyPercent: 8,
-  convertPercent: 70,
-  keepInApyPercent: 30,
-}
-
 const DEFAULT_ALLOCATION: Allocation = {
   needsPercent: 50, wantsPercent: 30, investPercent: 20,
   needsSpent: 0, wantsSpent: 0, investSpent: 0, movements: [],

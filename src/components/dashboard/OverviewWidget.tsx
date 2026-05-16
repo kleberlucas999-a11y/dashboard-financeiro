@@ -96,7 +96,6 @@ function ReceivablesEditor() {
   const settings = month.usdtSettings
   const rate = month.exchangeRate || exchangeRate.rate
   const netUSDT = calcUSDTNet(month)
-  const isMay2025 = month.id === '2025-05'
 
   const handleRateRefresh = async () => {
     try {
@@ -130,27 +129,13 @@ function ReceivablesEditor() {
 
           {/* USDT — com toggle "Recebi este mês" */}
           <div className="relative">
-            {isMay2025 && settings.grossAmount !== undefined ? (
-              <EditableCard
-                label="USDT Bruto"
-                value={formatUSDT(settings.grossAmount)}
-                sub={settings.received === false ? '⏳ Não recebido ainda' : `Desconto: ${formatUSDT(settings.discount || 0)}`}
-                color={settings.received === false ? '#4a5568' : '#26a17b'}
-                onSave={(v) => {
-                  const g = parseFloat(v)
-                  const d = settings.discount || 0
-                  updateUSDTSettings(currentMonthId, { grossAmount: g, monthlyAmount: g - d })
-                }}
-              />
-            ) : (
-              <EditableCard
-                label={`Comissão USDT ${settings.received === false ? '(pendente)' : ''}`}
-                value={settings.received === false ? 'Não recebido' : formatUSDT(settings.monthlyAmount)}
-                sub={settings.received === false ? 'Clique em "Recebi" quando cair' : `≈ ${formatBRL(calcUSDTInBRL(settings.monthlyAmount, rate))}`}
-                color={settings.received === false ? '#4a5568' : '#26a17b'}
-                onSave={(v) => updateUSDTSettings(currentMonthId, { monthlyAmount: parseFloat(v) })}
-              />
-            )}
+            <EditableCard
+              label={`Comissão USDT ${settings.received === false ? '(pendente)' : ''}`}
+              value={settings.received === false ? 'Não recebido' : formatUSDT(settings.monthlyAmount)}
+              sub={settings.received === false ? 'Clique em "Recebi" quando cair' : `≈ ${formatBRL(calcUSDTInBRL(settings.monthlyAmount, rate))}`}
+              color={settings.received === false ? '#4a5568' : '#26a17b'}
+              onSave={(v) => updateUSDTSettings(currentMonthId, { monthlyAmount: parseFloat(v) })}
+            />
             {/* Toggle recebido */}
             <button
               onClick={() => settings.received === false ? registerUSDTIncome(currentMonthId) : unregisterUSDTIncome(currentMonthId)}
@@ -163,21 +148,6 @@ function ReceivablesEditor() {
               {settings.received === false ? '✓ Recebi!' : '⏸ Estornar'}
             </button>
           </div>
-
-          {/* Discount (May only) */}
-          {isMay2025 && (
-            <EditableCard
-              label="Desconto Viagem"
-              value={`− ${formatUSDT(settings.discount || 0)}`}
-              sub={settings.discountLabel}
-              color="#f06060"
-              onSave={(v) => {
-                const d = parseFloat(v)
-                const g = settings.grossAmount || 0
-                updateUSDTSettings(currentMonthId, { discount: d, monthlyAmount: g - d })
-              }}
-            />
-          )}
 
           {/* Exchange rate */}
           <div className="relative group">

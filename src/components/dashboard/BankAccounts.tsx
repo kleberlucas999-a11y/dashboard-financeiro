@@ -170,7 +170,6 @@ export function BankAccounts() {
   if (!month) return null
 
   const rate = month.exchangeRate || exchangeRate.rate
-  const isMay2025 = month.id === '2025-05'
   const salaryRegistered = isSalaryRegistered(currentMonthId)
 
   // Find which account received the salary (has entrada linked to __salary__)
@@ -316,16 +315,6 @@ export function BankAccounts() {
             )}
           </CardContent>
       </Card>
-
-      {/* May 2025 info banner */}
-      {isMay2025 && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-[#26a17b]/30 bg-[#26a17b]/08">
-          <span className="text-base shrink-0">💡</span>
-          <p className="text-sm text-[#26a17b]">
-            <span className="font-semibold">Maio 2025:</span> Salário lançado na conta Operacional. Dízimo separado automaticamente. Contas pagas via USDT.
-          </p>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {month.bankAccounts.map((acc) => {

@@ -235,7 +235,6 @@ export function BillsManagement() {
   if (!month) return null
 
   const importedBills = month.bills.filter(b => b.notes?.includes('Importado em'))
-  const isMay2025 = month.id === '2025-05'
   const overdueBills = month.overdueBills || []
   const overduePending = overdueBills.filter(b => b.status !== 'pago' && b.status !== 'quitado')
   const overdueTotal = overduePending.reduce((s, b) => s + b.amount, 0)
@@ -410,9 +409,7 @@ export function BillsManagement() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>
-              {isMay2025 ? 'Dias 1–14 (pagar via USDT)' : '1ª Quinzena — Dias 1–14'}
-            </CardTitle>
+            <CardTitle>1ª Quinzena — Dias 1–14</CardTitle>
             <span className="text-sm font-mono text-[#3b82f6]">{formatBRL(getBillsFirstHalf(activeBills).reduce((s,b)=>s+b.amount,0))}</span>
           </div>
         </CardHeader>
@@ -432,9 +429,7 @@ export function BillsManagement() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle>
-              {isMay2025 ? 'Dias 15–31 (pagar via USDT)' : '2ª Quinzena — Dias 15–31'}
-            </CardTitle>
+            <CardTitle>2ª Quinzena — Dias 15–31</CardTitle>
             <span className="text-sm font-mono text-[#26a17b]">{formatBRL(getBillsSecondHalf(activeBills).reduce((s,b)=>s+b.amount,0))}</span>
           </div>
         </CardHeader>

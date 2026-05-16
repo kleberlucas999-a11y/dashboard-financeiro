@@ -35,14 +35,11 @@ export function USDTManagement() {
 
   if (!month) return null
 
-  const isMay2025 = month.id === '2025-05'
   const settings = month.usdtSettings
   const rate = month.exchangeRate || exchangeRate.rate
 
   // Core amounts
-  const grossAmount = settings.grossAmount ?? settings.monthlyAmount
-  const discount = settings.discount ?? 0
-  const netAmount = calcUSDTNet(month)   // monthlyAmount = gross - discount
+  const netAmount = calcUSDTNet(month)   // monthlyAmount (or gross - discount if set)
 
   const usdtTithe = netAmount * 0.1
   const usdtAvailable = netAmount - usdtTithe
@@ -83,57 +80,6 @@ export function USDTManagement() {
   return (
     <div className="space-y-4 animate-fade-in">
 
-      {/* May 2025: gross/discount/net breakdown */}
-      {isMay2025 && settings.grossAmount !== undefined && (
-        <Card className="border-[#26a17b]/40">
-          <CardHeader><CardTitle>Entrada USDT — Maio 2025</CardTitle></CardHeader>
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 bg-[#07090d] rounded-xl border border-[#1a2030]">
-                <p className="text-xs text-[#8898aa] mb-2">Bruto (plataforma)</p>
-                <p className="text-xl font-mono font-bold text-[#e8ecf4]">{formatUSDT(grossAmount)}</p>
-                <p className="text-xs text-[#4a5568] mt-1">{formatBRL(calcUSDTInBRL(grossAmount, rate))}</p>
-              </div>
-              <div className="p-4 bg-[#f06060]/08 rounded-xl border border-[#f06060]/30">
-                <p className="text-xs text-[#f06060] mb-2">Desconto especial</p>
-                <p className="text-xl font-mono font-bold text-[#f06060]">− {formatUSDT(discount)}</p>
-                <p className="text-xs text-[#f06060]/70 mt-1 leading-snug">{settings.discountLabel}</p>
-              </div>
-              <div className="p-4 bg-[#26a17b]/08 rounded-xl border border-[#26a17b]/40">
-                <p className="text-xs text-[#26a17b] mb-2">Líquido (o que chega)</p>
-                <p className="text-xl font-mono font-bold text-[#26a17b]">{formatUSDT(netAmount)}</p>
-                <p className="text-xs text-[#4a5568] mt-1">{formatBRL(calcUSDTInBRL(netAmount, rate))}</p>
-              </div>
-            </div>
-            {/* Edit gross/discount */}
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <Input
-                label="USDT bruto"
-                type="number"
-                suffix="USDT"
-                value={settings.grossAmount || ''}
-                onChange={(e) => {
-                  const g = parseFloat(e.target.value) || 0
-                  const d = settings.discount || 0
-                  updateUSDTSettings(currentMonthId, { grossAmount: g, monthlyAmount: g - d })
-                }}
-              />
-              <Input
-                label={`Desconto — ${settings.discountLabel || 'especial'}`}
-                type="number"
-                suffix="USDT"
-                value={settings.discount || ''}
-                onChange={(e) => {
-                  const d = parseFloat(e.target.value) || 0
-                  const g = settings.grossAmount || 0
-                  updateUSDTSettings(currentMonthId, { discount: d, monthlyAmount: g - d })
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Top summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -152,51 +98,18 @@ export function USDTManagement() {
         ))}
       </div>
 
-      {/* Minimum to convert breakdown (May 2025) */}
-      {isMay2025 && (
-        <Card>
-          <CardHeader><CardTitle>Cálculo: Mínimo a Converter</CardTitle></CardHeader>
-          <CardContent className="pt-4 space-y-3">
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div className="p-3 bg-[#07090d] rounded-xl border border-[#1a2030]">
-                <p className="text-xs text-[#8898aa] mb-1">Contas maio (BRL)</p>
-                <p className="font-mono text-[#e8ecf4]">{formatBRL(month.bills.filter(b=>b.status!=='quitado').reduce((s,b)=>s+b.amount,0))}</p>
-              </div>
-              <div className="p-3 bg-[#f06060]/08 rounded-xl border border-[#f06060]/30">
-                <p className="text-xs text-[#f06060] mb-1">Atrasados abril (BRL)</p>
-                <p className="font-mono text-[#f06060]">{formatBRL((month.overdueBills||[]).filter(b=>b.status!=='pago').reduce((s,b)=>s+b.amount,0))}</p>
-              </div>
-              <div className="p-3 bg-[#07090d] rounded-xl border border-[#243048]">
-                <p className="text-xs text-[#8898aa] mb-1">+ Margem</p>
-                <p className="font-mono text-[#e8ecf4]">{formatUSDT(60)}</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-[#f06060]/08 rounded-xl border border-[#f06060]/30">
-              <span className="text-sm text-[#e8ecf4]">Total em USDT (à taxa {rate.toFixed(4)})</span>
-              <span className="text-lg font-mono font-bold text-[#f06060]">{formatUSDT(minToConvert)}</span>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-[#26a17b]/08 rounded-xl border border-[#26a17b]/30">
-              <span className="text-sm text-[#26a17b]">Disponível − dízimo − mínimo a converter = APY</span>
-              <span className="text-lg font-mono font-bold text-[#26a17b]">{formatUSDT(apyUSDT)}</span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Settings */}
         <Card>
           <CardHeader><CardTitle>Configurações USDT</CardTitle></CardHeader>
           <CardContent className="space-y-5 pt-4">
-            {!isMay2025 && (
-              <Input
-                label="Receita mensal (USDT)"
-                type="number"
-                suffix="USDT"
-                value={settings.monthlyAmount}
-                onChange={(e) => updateUSDTSettings(currentMonthId, { monthlyAmount: parseFloat(e.target.value) || 0 })}
-              />
-            )}
+            <Input
+              label="Receita mensal (USDT)"
+              type="number"
+              suffix="USDT"
+              value={settings.monthlyAmount}
+              onChange={(e) => updateUSDTSettings(currentMonthId, { monthlyAmount: parseFloat(e.target.value) || 0 })}
+            />
             <div className="space-y-1">
               <Slider
                 label="Converter para BRL"

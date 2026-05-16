@@ -4,7 +4,7 @@ import { useFinanceStore } from '@/store/useFinanceStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatBRL, getDaysInMonth, getCategoryColor } from '@/lib/utils'
 import { Bill, BillStatus } from '@/types'
-import { ArrowDownCircle, ArrowUpCircle, Clock, Lock } from 'lucide-react'
+import { ArrowDownCircle, ArrowUpCircle, Clock } from 'lucide-react'
 
 interface DayEvent {
   id: string
@@ -18,18 +18,6 @@ interface DayEvent {
   emoji?: string
 }
 
-// May 2025 fixed events
-const MAY_FIXED_EVENTS: Record<number, DayEvent[]> = {
-  5: [
-    { id: 'fixed-income', title: '💰 R$10k entra', type: 'entrada', color: '#00d4a0' },
-    { id: 'tithe-brl', title: '🙏 Dízimo R$1k', amount: 1000, type: 'info', color: '#f5a020' },
-    { id: 'cdb', title: '🔒 9k → CDB', amount: 9000, type: 'cdb', color: '#6366f1' },
-  ],
-  15: [
-    { id: 'usdt-income', title: '💲 USDT $4.007 chega', type: 'entrada', color: '#26a17b' },
-  ],
-}
-
 export function MonthlyCalendar() {
   const { currentMonthId, getCurrentMonth, setBillStatus, setOverdueBillStatus } = useFinanceStore()
   const month = getCurrentMonth()
@@ -37,7 +25,6 @@ export function MonthlyCalendar() {
 
   if (!month) return null
 
-  const isMay2025 = month.id === '2025-05'
   const daysInMonth = getDaysInMonth(month.year, month.month)
   const firstDayOfWeek = new Date(month.year, month.month - 1, 1).getDay()
 
@@ -49,31 +36,28 @@ export function MonthlyCalendar() {
     eventsByDay[day].push(event)
   }
 
-  if (isMay2025) {
-    // Fixed May 2025 events
-    Object.entries(MAY_FIXED_EVENTS).forEach(([dayStr, events]) => {
-      events.forEach((evt) => addEvent(parseInt(dayStr), evt))
-    })
-    // Add overdue bills to day 15 (when USDT arrives)
-    ;(month.overdueBills || []).forEach((bill) => {
-      if (bill.status === 'quitado') return
-      addEvent(15, {
-        id: `overdue-${bill.id}`,
-        title: `⚠ ${bill.name}`,
-        amount: bill.amount,
-        type: bill.status === 'pago' ? 'pagamento' : 'vencimento',
-        status: bill.status,
-        billId: bill.id,
-        isOverdue: true,
-        color: '#f06060',
-        emoji: '⚠',
-      })
-    })
-  } else {
-    // Normal months: fixed income day 3, USDT day 15
+  // Fixed income day 3, USDT day 15
+  if (month.fixedIncome > 0) {
     addEvent(3, { id: 'fixed-income', title: 'Renda Fixa', amount: month.fixedIncome, type: 'entrada', color: '#00d4a0' })
+  }
+  if (month.usdtSettings.monthlyAmount > 0) {
     addEvent(15, { id: 'usdt-income', title: 'USDT Recebido', amount: month.usdtSettings.monthlyAmount * (month.usdtSettings.convertPercent / 100) * (month.exchangeRate || 5.02), type: 'entrada', color: '#26a17b' })
   }
+  // Overdue bills shown on day 15
+  ;(month.overdueBills || []).forEach((bill) => {
+    if (bill.status === 'quitado') return
+    addEvent(15, {
+      id: `overdue-${bill.id}`,
+      title: `⚠ ${bill.name}`,
+      amount: bill.amount,
+      type: bill.status === 'pago' ? 'pagamento' : 'vencimento',
+      status: bill.status,
+      billId: bill.id,
+      isOverdue: true,
+      color: '#f06060',
+      emoji: '⚠',
+    })
+  })
 
   // Bills
   month.bills.forEach((bill) => {
@@ -103,7 +87,6 @@ export function MonthlyCalendar() {
           { label: 'Entrada', color: '#00d4a0', icon: ArrowDownCircle },
           { label: 'Vencimento', color: '#f5a020', icon: Clock },
           { label: 'Pago', color: '#26a17b', icon: ArrowUpCircle },
-          ...(isMay2025 ? [{ label: 'CDB congelado', color: '#6366f1', icon: Lock }] : []),
         ].map(({ label, color, icon: Icon }) => (
           <div key={label} className="flex items-center gap-1.5">
             <Icon size={14} style={{ color }} />
