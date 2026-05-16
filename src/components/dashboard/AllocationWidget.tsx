@@ -4,7 +4,6 @@ import { useFinanceStore } from '@/store/useFinanceStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Slider } from '@/components/ui/slider'
 import { Dialog } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
@@ -12,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatBRL, calcTotalIncome, calcFreeBalance } from '@/lib/utils'
 import {
   ArrowRight, AlertTriangle, CheckCircle2, PlayCircle,
-  Receipt, PauseCircle,
+  Receipt, PauseCircle, Pencil, Check, X,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { AllocationKey } from '@/types'
@@ -32,6 +31,124 @@ const ALLOC_COLORS: Record<AllocationKey, string> = {
   needs:  '#f06060',
   wants:  '#a78bfa',
   invest: '#00d4a0',
+}
+
+// ─── Slider com inputs editáveis de % e R$ ───────────────────────────────────
+function AllocSlider({
+  label, color, pct, budget, totalIncome, onChange,
+}: {
+  label: string
+  color: string
+  pct: number
+  budget: number
+  totalIncome: number
+  onChange: (newPct: number) => void
+}) {
+  const [editMode, setEditMode] = useState<'pct' | 'brl' | null>(null)
+  const [draft, setDraft] = useState('')
+
+  const openEdit = (mode: 'pct' | 'brl') => {
+    setEditMode(mode)
+    setDraft(mode === 'pct' ? String(pct) : budget.toFixed(2))
+  }
+
+  const commit = () => {
+    const raw = parseFloat(draft.replace(',', '.'))
+    if (!isNaN(raw) && raw >= 0) {
+      if (editMode === 'pct') {
+        onChange(Math.min(100, Math.round(raw)))
+      } else {
+        // convert R$ to % (rounded to 1 decimal, capped at 100)
+        const newPct = totalIncome > 0 ? Math.min(100, Math.round((raw / totalIncome) * 100)) : 0
+        onChange(newPct)
+      }
+    }
+    setEditMode(null)
+  }
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') commit()
+    if (e.key === 'Escape') setEditMode(null)
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Label row + inline inputs */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+          <span className="text-sm text-[#e8ecf4]">{label}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {/* % input */}
+          {editMode === 'pct' ? (
+            <div className="flex items-center gap-1">
+              <input
+                autoFocus
+                type="number" min={0} max={100}
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={handleKey}
+                className="w-14 bg-[#07090d] border border-[#00d4a0]/60 rounded-md px-2 py-0.5 text-xs font-mono text-[#e8ecf4] focus:outline-none text-right"
+              />
+              <span className="text-xs text-[#4a5568]">%</span>
+              <button onClick={commit} className="p-0.5 text-[#00d4a0] hover:text-[#00d4a0]/80 cursor-pointer"><Check size={12} /></button>
+              <button onClick={() => setEditMode(null)} className="p-0.5 text-[#4a5568] hover:text-[#e8ecf4] cursor-pointer"><X size={12} /></button>
+            </div>
+          ) : (
+            <button
+              onClick={() => openEdit('pct')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-[#1a2030] hover:border-[#243048] text-xs font-mono text-[#e8ecf4] hover:text-[#00d4a0] cursor-pointer transition-all"
+              title="Editar %"
+            >
+              {pct}%
+              <Pencil size={9} className="text-[#4a5568]" />
+            </button>
+          )}
+
+          {/* R$ input */}
+          {editMode === 'brl' ? (
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-[#4a5568]">R$</span>
+              <input
+                autoFocus
+                type="number" min={0}
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={handleKey}
+                className="w-24 bg-[#07090d] border border-[#00d4a0]/60 rounded-md px-2 py-0.5 text-xs font-mono text-[#e8ecf4] focus:outline-none text-right"
+              />
+              <button onClick={commit} className="p-0.5 text-[#00d4a0] hover:text-[#00d4a0]/80 cursor-pointer"><Check size={12} /></button>
+              <button onClick={() => setEditMode(null)} className="p-0.5 text-[#4a5568] hover:text-[#e8ecf4] cursor-pointer"><X size={12} /></button>
+            </div>
+          ) : (
+            <button
+              onClick={() => openEdit('brl')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-[#1a2030] hover:border-[#243048] text-xs font-mono hover:text-[#00d4a0] cursor-pointer transition-all"
+              style={{ color }}
+              title="Editar valor em R$"
+            >
+              {budget.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              <Pencil size={9} className="text-[#4a5568]" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Slider */}
+      <input
+        type="range" min={0} max={100} step={1}
+        value={pct}
+        onChange={e => onChange(parseInt(e.target.value))}
+        className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+        style={{
+          background: `linear-gradient(to right, ${color} ${pct}%, #1a2030 ${pct}%)`,
+          accentColor: color,
+        }}
+      />
+    </div>
+  )
 }
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -350,18 +467,17 @@ export function AllocationWidget() {
                 </div>
 
                 {(['needs', 'wants', 'invest'] as AllocationKey[]).map((key) => {
-                  const pctKey = `${key}Percent` as 'needsPercent' | 'wantsPercent' | 'investPercent'
+                  const pctKey    = `${key}Percent` as 'needsPercent' | 'wantsPercent' | 'investPercent'
                   const currentPct = alloc[pctKey] as number
                   return (
-                    <Slider
+                    <AllocSlider
                       key={key}
                       label={ALLOC_LABELS[key]}
-                      displayValue={`${currentPct}% = ${formatBRL(budgets[key])}`}
-                      min={0} max={100} step={5}
-                      value={currentPct}
                       color={ALLOC_COLORS[key]}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value)
+                      pct={currentPct}
+                      budget={budgets[key]}
+                      totalIncome={totalIncome}
+                      onChange={(val) => {
                         const newNeeds  = key === 'needs'  ? val : alloc.needsPercent
                         const newWants  = key === 'wants'  ? val : alloc.wantsPercent
                         const newInvest = key === 'invest' ? val : alloc.investPercent
