@@ -696,6 +696,18 @@ export function DailyExpensesWidget() {
       .reduce((s, e) => s + toBRL(e, rate), 0)
   }, [filtered, selectedIds, rate])
 
+  // Total value of filtered results (shown as summary when filter active)
+  const filteredTotal = useMemo(() => {
+    return filtered.reduce((s, e) => s + toBRL(e, rate), 0)
+  }, [filtered, rate])
+
+  // Breakdown of filtered total by tipo
+  const filteredByTipo = useMemo(() => {
+    const map: Record<string, number> = { custo: 0, lazer: 0, investimento: 0 }
+    for (const e of filtered) map[e.tipo ?? 'custo'] += toBRL(e, rate)
+    return map
+  }, [filtered, rate])
+
   return (
     <div className="space-y-4">
 
@@ -878,6 +890,37 @@ export function DailyExpensesWidget() {
             </h3>
             <span className="text-xs text-[#4a5568]">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</span>
           </div>
+
+          {/* ── Filter summary strip ── shown only when a filter is active */}
+          {hasActiveFilter && filtered.length > 0 && (
+            <div className="px-4 py-2.5 border-b border-[#1a2030] bg-[#6366f1]/05 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-[#6366f1] uppercase tracking-wider font-semibold">Total filtrado</span>
+                <span className="text-sm font-mono font-bold text-[#e8ecf4]">{fmtBRL(filteredTotal)}</span>
+              </div>
+              <div className="flex items-center gap-3 ml-1">
+                {filteredByTipo.custo > 0 && (
+                  <span className="text-[10px] font-mono text-[#f06060]">
+                    Despesas: {fmtBRL(filteredByTipo.custo)}
+                  </span>
+                )}
+                {filteredByTipo.lazer > 0 && (
+                  <span className="text-[10px] font-mono text-[#a78bfa]">
+                    Lazer: {fmtBRL(filteredByTipo.lazer)}
+                  </span>
+                )}
+                {filteredByTipo.investimento > 0 && (
+                  <span className="text-[10px] font-mono text-[#00d4a0]">
+                    Invest.: {fmtBRL(filteredByTipo.investimento)}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-[#4a5568] ml-auto">
+                {filtered.length} de {expenses.length} lançamento{expenses.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
+
 
           {filtered.length === 0 ? (
             <div className="py-12 text-center">
