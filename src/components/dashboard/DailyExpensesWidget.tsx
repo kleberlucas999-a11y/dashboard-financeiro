@@ -78,13 +78,14 @@ function fmtDate(dateStr: string) {
 // ─── Tipo breakdown cards ────────────────────────────────────────────────────
 
 function TipoCards({
-  expenses, bills, rate, income, usdtIncomeBRL,
+  expenses, bills, rate, income, usdtIncomeBRL, salary,
 }: {
   expenses: DailyExpense[]
   bills: Bill[]
   rate: number
-  income: number
+  income: number       // totalIncome — used for % denominator
   usdtIncomeBRL: number
+  salary: number       // fixedIncome only — used for label
 }) {
   // Daily expense totals by tipo
   const dailyTotals = useMemo(() => {
@@ -128,7 +129,7 @@ function TipoCards({
           </p>
         )}
         <p className="text-[10px] text-[#4a5568] mt-1">
-          Salário {fmtBRL(income)}{usdtIncomeBRL > 0 ? ` + USDT ${fmtBRL(usdtIncomeBRL)}` : ''}
+          Salário {fmtBRL(salary)}{usdtIncomeBRL > 0 ? ` + USDT ${fmtBRL(usdtIncomeBRL)}` : usdtIncomeBRL === 0 ? ' · USDT pendente' : ''}
         </p>
         <p className="text-[10px] text-[#1a2030] mt-1">
           {expenses.length} gasto{expenses.length !== 1 ? 's' : ''} + {bills.filter(b => b.status !== 'quitado').length} conta{bills.filter(b => b.status !== 'quitado').length !== 1 ? 's' : ''}
@@ -405,22 +406,26 @@ export function DailyExpensesWidget() {
   const { currentMonthId, months, exchangeRate } = useFinanceStore()
   const month    = months[currentMonthId]
   const expenses = useMemo(() => month?.dailyExpenses ?? [], [month])
-  const rate     = exchangeRate.rate
-  const income   = month?.fixedIncome ?? 0
 
-  // All active bills + overdue bills (not quitado) for Despesas card
+  // Always use the month-specific exchange rate (set when the user configured that month)
+  // Fall back to the live global rate only if not set
+  const rate   = month?.exchangeRate || exchangeRate.rate
+  const salary = month?.fixedIncome ?? 0
+
+  // All active bills + overdue bills for Despesas card
   const allBills = useMemo(() => [
     ...(month?.bills ?? []),
     ...(month?.overdueBills ?? []),
   ], [month])
 
-  // Total income = salary + USDT received this month (converted to BRL at month rate)
+  // Total income = salary + USDT received this month (converted at month-specific rate)
   // USDT only counts if the user clicked "Recebi!" (received !== false)
-  const usdtReceived = month?.usdtSettings?.received !== false
+  const usdtReceived  = month?.usdtSettings?.received !== false
   const usdtIncomeBRL = usdtReceived
     ? Math.round((month?.usdtSettings?.monthlyAmount ?? 0) * rate * 100) / 100
     : 0
-  const totalIncome = income + usdtIncomeBRL
+  const totalIncome = salary + usdtIncomeBRL
+  const income = totalIncome   // alias passed to TipoCards for % calculation
 
   const [showForm,   setShowForm]   = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -569,7 +574,7 @@ export function DailyExpensesWidget() {
       {showImport && <ImportWidget onClose={() => setShowImport(false)} />}
 
       {/* ── Tipo breakdown cards (all expenses + all bills) ── */}
-      <TipoCards expenses={expenses} bills={allBills} rate={rate} income={totalIncome} usdtIncomeBRL={usdtIncomeBRL} />
+      <TipoCards expenses={expenses} bills={allBills} rate={rate} income={totalIncome} usdtIncomeBRL={usdtIncomeBRL} salary={salary} />
 
       {/* ── Main content: list + category breakdown ────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
