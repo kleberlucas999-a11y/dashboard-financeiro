@@ -13,7 +13,8 @@ import {
   formatBRL, getCategoryLabel, getCategoryColor, getBillDiagnosis,
   getBillsFirstHalf, getBillsSecondHalf,
 } from '@/lib/utils'
-import { Plus, Trash2, Pencil, CheckCircle2, Circle, XCircle, Info, AlertTriangle, Wallet, CreditCard } from 'lucide-react'
+import { Plus, Trash2, Pencil, CheckCircle2, Circle, XCircle, Info, AlertTriangle, Wallet, CreditCard, Upload } from 'lucide-react'
+import { ImportWidget } from '@/components/dashboard/ImportWidget'
 
 const categoryOptions = [
   { value: 'moradia', label: 'Moradia' },
@@ -204,6 +205,7 @@ export function BillsManagement() {
   // Payment source dialog state
   const [payingBill, setPayingBill] = useState<Bill | null>(null)
   const [payingOverdue, setPayingOverdue] = useState<Bill | null>(null)
+  const [showImport, setShowImport] = useState(false)
 
   if (!month) return null
 
@@ -289,7 +291,15 @@ export function BillsManagement() {
                 <p className="text-xl font-mono font-bold text-[#f5a020]">{formatBRL(grandTotal - totalPaid)}</p>
               </div>
             </div>
-            <Button onClick={openAdd} size="sm"><Plus size={14} /> Nova Conta</Button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowImport(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1a2030] text-[#8898aa] hover:text-[#00d4a0] hover:border-[#00d4a0]/40 text-xs font-medium transition-all cursor-pointer"
+              >
+                <Upload size={13} /> Importar
+              </button>
+              <Button onClick={openAdd} size="sm"><Plus size={14} /> Nova Conta</Button>
+            </div>
           </div>
           <Progress value={totalPaid} max={grandTotal} color="#00d4a0" size="md" />
         </CardContent>
@@ -447,6 +457,9 @@ export function BillsManagement() {
           onClose={() => setPayingOverdue(null)}
         />
       )}
+
+      {/* Import modal */}
+      {showImport && <ImportWidget onClose={() => setShowImport(false)} />}
 
       {/* Add/Edit form */}
       <Dialog open={showForm} onClose={() => setShowForm(false)} title={editingBill ? 'Editar Conta' : 'Nova Conta'} size="sm">

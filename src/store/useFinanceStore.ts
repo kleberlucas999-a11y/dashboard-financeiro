@@ -137,9 +137,21 @@ interface FinanceStore {
   addBankTransaction: (monthId: string, accountId: string, tx: Omit<BankTransaction, 'id'>) => void
   deleteBankTransaction: (monthId: string, accountId: string, txId: string) => void
 
+  importExpenses: (monthId: string, rows: ImportRow[]) => void
+
   setSidebarOpen: (open: boolean) => void
   setActiveSection: (section: string) => void
   updateNotes: (monthId: string, notes: string) => void
+}
+
+export interface ImportRow {
+  date: string        // YYYY-MM-DD
+  description: string
+  amount: number
+  category: import('@/types').BillCategory
+  tipo: 'custo' | 'lazer' | 'investimento'
+  conta: 'operacional' | 'usdt' | 'cartao_credito'
+  status: 'pago' | 'pendente'
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -595,6 +607,62 @@ export const useFinanceStore = create<FinanceStore>()(
               },
             },
           })),
+
+        importExpenses: (monthId, rows) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month) return s
+
+            let updatedMonth = { ...month, bankAccounts: month.bankAccounts.map(a => ({ ...a, transactions: [...a.transactions] })) }
+
+            const newBills: Bill[] = []
+
+            for (const row of rows) {
+              const billId = generateId()
+              const dueDay = parseInt(row.date.split('-')[2]) || 1
+
+              // Determine effective category: credit card bills always use 'cartao'
+              const category = (row.conta === 'cartao_credito' ? 'cartao' : row.category) as Bill['category']
+
+              const bill: Bill = {
+                id: billId,
+                name: row.description,
+                amount: row.amount,
+                dueDay,
+                category,
+                status: row.status as BillStatus,
+                notes: `Importado em ${new Date().toLocaleDateString('pt-BR')}`,
+                isVariable: true,
+              }
+              newBills.push(bill)
+
+              // Create bank transaction for operacional or usdt (not credit card)
+              if (row.status === 'pago' && row.conta !== 'cartao_credito') {
+                const accType = row.conta === 'usdt' ? 'usdt' : 'operacional'
+                const targetAcc = updatedMonth.bankAccounts.find(a => a.type === accType)
+                if (targetAcc) {
+                  targetAcc.transactions.push({
+                    id: generateId(),
+                    date: row.date,
+                    description: row.description,
+                    amount: row.amount,
+                    type: 'saida',
+                    linkedBillId: billId,
+                  })
+                }
+              }
+            }
+
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...updatedMonth,
+                  bills: [...updatedMonth.bills, ...newBills],
+                },
+              },
+            }
+          }),
 
         setSidebarOpen: (open) => set({ sidebarOpen: open }),
         setActiveSection: (section) => set({ activeSection: section }),
