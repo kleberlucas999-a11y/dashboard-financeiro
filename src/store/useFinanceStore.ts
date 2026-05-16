@@ -139,6 +139,9 @@ interface FinanceStore {
 
   importExpenses: (monthId: string, rows: ImportRow[]) => void
 
+  /** Remove all bills that were created via spreadsheet import (notes contain "Importado em") + their linked bank transactions */
+  clearImportedBills: (monthId: string) => void
+
   // Daily expenses
   addDailyExpense: (monthId: string, expense: Omit<DailyExpense, 'id'>) => void
   updateDailyExpense: (monthId: string, expenseId: string, updates: Partial<DailyExpense>) => void
@@ -662,6 +665,31 @@ export const useFinanceStore = create<FinanceStore>()(
                   ...month,
                   bankAccounts: updatedAccounts,
                   dailyExpenses: [...(month.dailyExpenses ?? []), ...newExpenses],
+                },
+              },
+            }
+          }),
+
+        clearImportedBills: (monthId) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month) return s
+            const importedIds = new Set(
+              month.bills
+                .filter(b => b.notes?.includes('Importado em'))
+                .map(b => b.id)
+            )
+            if (importedIds.size === 0) return s
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...month,
+                  bills: month.bills.filter(b => !importedIds.has(b.id)),
+                  bankAccounts: month.bankAccounts.map(acc => ({
+                    ...acc,
+                    transactions: acc.transactions.filter(tx => !tx.linkedBillId || !importedIds.has(tx.linkedBillId)),
+                  })),
                 },
               },
             }

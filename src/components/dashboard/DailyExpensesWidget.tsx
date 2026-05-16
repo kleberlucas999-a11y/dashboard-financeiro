@@ -77,7 +77,7 @@ function fmtDate(dateStr: string) {
 
 // ─── Tipo breakdown cards ────────────────────────────────────────────────────
 
-function TipoCards({ expenses, rate, income }: { expenses: DailyExpense[]; rate: number; income: number }) {
+function TipoCards({ expenses, rate, income, usdtIncomeBRL }: { expenses: DailyExpense[]; rate: number; income: number; usdtIncomeBRL: number }) {
   const tipoTotals = useMemo(() => {
     const map: Record<DailyExpenseTipo, number> = { custo: 0, lazer: 0, investimento: 0 }
     for (const e of expenses) {
@@ -104,7 +104,10 @@ function TipoCards({ expenses, rate, income }: { expenses: DailyExpense[]; rate:
             {pct(totalGasto)}% da renda · Sobra {fmtBRL(Math.max(0, income - totalGasto))}
           </p>
         )}
-        <p className="text-[10px] text-[#1a2030] mt-2">{expenses.length} lançamento{expenses.length !== 1 ? 's' : ''}</p>
+        <p className="text-[10px] text-[#4a5568] mt-1">
+          Renda: {fmtBRL(income)}{usdtIncomeBRL > 0 ? ` + ${fmtBRL(usdtIncomeBRL)} USDT` : ''}
+        </p>
+        <p className="text-[10px] text-[#1a2030] mt-1">{expenses.length} lançamento{expenses.length !== 1 ? 's' : ''}</p>
       </div>
 
       {/* By tipo */}
@@ -372,6 +375,13 @@ export function DailyExpensesWidget() {
   const rate     = exchangeRate.rate
   const income   = month?.fixedIncome ?? 0
 
+  // Total income = salary + USDT converted (if received)
+  const usdtReceived = month?.usdtSettings?.received !== false
+  const usdtIncomeBRL = usdtReceived
+    ? Math.round((month?.usdtSettings?.monthlyAmount ?? 0) * rate * 100) / 100
+    : 0
+  const totalIncome = income + usdtIncomeBRL
+
   const [showForm,   setShowForm]   = useState(false)
   const [showImport, setShowImport] = useState(false)
 
@@ -519,7 +529,7 @@ export function DailyExpensesWidget() {
       {showImport && <ImportWidget onClose={() => setShowImport(false)} />}
 
       {/* ── Tipo breakdown cards (based on ALL expenses, not filtered) ── */}
-      {expenses.length > 0 && <TipoCards expenses={expenses} rate={rate} income={income} />}
+      {expenses.length > 0 && <TipoCards expenses={expenses} rate={rate} income={totalIncome} usdtIncomeBRL={usdtIncomeBRL} />}
 
       {/* ── Main content: list + category breakdown ────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

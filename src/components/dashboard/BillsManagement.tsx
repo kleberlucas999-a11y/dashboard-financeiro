@@ -185,6 +185,32 @@ function BillRow({ bill, accounts, onEdit, onDelete, onToggle }: {
   )
 }
 
+// ─── Imported bills cleaner button ──────────────────────────────────────────
+function ImportedBillsCleaner({ count, onConfirm }: { count: number; onConfirm: () => void }) {
+  const [confirming, setConfirming] = useState(false)
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-xs text-[#f5a020]">Remover {count}?</span>
+        <button onClick={() => { onConfirm(); setConfirming(false) }}
+          className="text-xs px-3 py-1.5 rounded-lg bg-[#f06060] text-white font-semibold hover:bg-[#e05050] cursor-pointer transition-all">
+          Confirmar
+        </button>
+        <button onClick={() => setConfirming(false)}
+          className="text-xs px-2 py-1.5 rounded-lg border border-[#1a2030] text-[#4a5568] hover:text-[#e8ecf4] cursor-pointer">
+          Cancelar
+        </button>
+      </div>
+    )
+  }
+  return (
+    <button onClick={() => setConfirming(true)}
+      className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-[#f06060]/40 text-[#f06060] hover:bg-[#f06060]/10 cursor-pointer transition-all whitespace-nowrap">
+      Limpar importadas
+    </button>
+  )
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export function BillsManagement() {
   const {
@@ -192,6 +218,7 @@ export function BillsManagement() {
     addBill, updateBill, deleteBill, setBillStatus,
     payBillFromAccount, unPayBill,
     payOverdueBillFromAccount, unPayOverdueBill,
+    clearImportedBills,
   } = useFinanceStore()
   const month = getCurrentMonth()
 
@@ -207,6 +234,7 @@ export function BillsManagement() {
 
   if (!month) return null
 
+  const importedBills = month.bills.filter(b => b.notes?.includes('Importado em'))
   const isMay2025 = month.id === '2025-05'
   const overdueBills = month.overdueBills || []
   const overduePending = overdueBills.filter(b => b.status !== 'pago' && b.status !== 'quitado')
@@ -264,6 +292,27 @@ export function BillsManagement() {
 
   return (
     <div className="space-y-4 animate-fade-in">
+
+      {/* Banner: imported bills detected */}
+      {importedBills.length > 0 && (
+        <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-[#f5a020]/40 bg-[#f5a020]/08">
+          <div className="flex items-center gap-3">
+            <AlertTriangle size={16} className="text-[#f5a020] shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-[#f5a020]">
+                {importedBills.length} conta{importedBills.length > 1 ? 's importadas via planilha' : ' importada via planilha'} encontrada{importedBills.length > 1 ? 's' : ''} aqui
+              </p>
+              <p className="text-xs text-[#8898aa] mt-0.5">
+                Esses lançamentos pertencem a Gastos Diários. Limpe-os e reimporte na seção correta.
+              </p>
+            </div>
+          </div>
+          <ImportedBillsCleaner
+            count={importedBills.length}
+            onConfirm={() => clearImportedBills(currentMonthId)}
+          />
+        </div>
+      )}
 
       {/* Summary bar */}
       <Card>
