@@ -128,7 +128,7 @@ function TipoCards({
           </p>
         )}
         <p className="text-[10px] text-[#4a5568] mt-1">
-          Renda: {fmtBRL(income)}{usdtIncomeBRL > 0 ? ` + ${fmtBRL(usdtIncomeBRL)} USDT` : ''}
+          Base: salário {fmtBRL(income)}
         </p>
         <p className="text-[10px] text-[#1a2030] mt-1">
           {expenses.length} gasto{expenses.length !== 1 ? 's' : ''} + {bills.filter(b => b.status !== 'quitado').length} conta{bills.filter(b => b.status !== 'quitado').length !== 1 ? 's' : ''}
@@ -414,12 +414,10 @@ export function DailyExpensesWidget() {
     ...(month?.overdueBills ?? []),
   ], [month])
 
-  // Total income = salary + USDT converted (if received)
-  const usdtReceived = month?.usdtSettings?.received !== false
-  const usdtIncomeBRL = usdtReceived
-    ? Math.round((month?.usdtSettings?.monthlyAmount ?? 0) * rate * 100) / 100
-    : 0
-  const totalIncome = income + usdtIncomeBRL
+  // Income base = fixedIncome (salary) only.
+  // USDT is a separate currency managed in its own section; mixing it would inflate the %.
+  const usdtIncomeBRL = 0   // kept for TipoCards prop but zeroed — not added to base
+  const totalIncome = income
 
   const [showForm,   setShowForm]   = useState(false)
   const [showImport, setShowImport] = useState(false)

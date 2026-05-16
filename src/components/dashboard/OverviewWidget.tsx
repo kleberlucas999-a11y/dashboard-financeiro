@@ -89,7 +89,7 @@ function EditableCard({
 
 // ─── Receivables editor ──────────────────────────────────────────────────────
 function ReceivablesEditor() {
-  const { currentMonthId, getCurrentMonth, exchangeRate, updateFixedIncome, updateUSDTSettings, updateMonthExchangeRate, setExchangeRate } = useFinanceStore()
+  const { currentMonthId, getCurrentMonth, exchangeRate, updateFixedIncome, updateUSDTSettings, updateMonthExchangeRate, setExchangeRate, registerUSDTIncome, unregisterUSDTIncome } = useFinanceStore()
   const month = getCurrentMonth()
   if (!month) return null
 
@@ -153,7 +153,7 @@ function ReceivablesEditor() {
             )}
             {/* Toggle recebido */}
             <button
-              onClick={() => updateUSDTSettings(currentMonthId, { received: settings.received === false ? true : false })}
+              onClick={() => settings.received === false ? registerUSDTIncome(currentMonthId) : unregisterUSDTIncome(currentMonthId)}
               className={`absolute bottom-3 right-3 flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border cursor-pointer transition-all ${
                 settings.received === false
                   ? 'bg-[#26a17b]/15 border-[#26a17b]/40 text-[#26a17b] hover:bg-[#26a17b]/25'

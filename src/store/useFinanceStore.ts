@@ -123,6 +123,11 @@ interface FinanceStore {
   /** Returns true if salary transactions are already registered for this month */
   isSalaryRegistered: (monthId: string) => boolean
 
+  /** Mark USDT as received: set received=true + create entrada in USDT account */
+  registerUSDTIncome: (monthId: string) => void
+  /** Revert USDT received: set received=false + remove linked entrada */
+  unregisterUSDTIncome: (monthId: string) => void
+
   updateFixedIncome: (monthId: string, amount: number) => void
   updateMonthExchangeRate: (monthId: string, rate: number) => void
 
@@ -513,6 +518,57 @@ export const useFinanceStore = create<FinanceStore>()(
                   bankAccounts: month.bankAccounts.map((acc) => ({
                     ...acc,
                     transactions: acc.transactions.filter((tx) => tx.linkedBillId !== '__salary__'),
+                  })),
+                },
+              },
+            }
+          }),
+
+        registerUSDTIncome: (monthId) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month) return s
+            const usdtAcc = month.bankAccounts.find(a => a.type === 'usdt')
+            if (!usdtAcc) return s
+            const amount = month.usdtSettings.monthlyAmount
+            const date = new Date().toISOString().slice(0, 10)
+            const tx: BankTransaction = {
+              id: generateId(),
+              date,
+              description: `USDT recebido — ${amount.toFixed(2)} USDT`,
+              amount,
+              type: 'entrada',
+              linkedBillId: '__usdt_received__',
+            }
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...month,
+                  usdtSettings: { ...month.usdtSettings, received: true },
+                  bankAccounts: month.bankAccounts.map(a =>
+                    a.id === usdtAcc.id
+                      ? { ...a, transactions: [...a.transactions, tx] }
+                      : a
+                  ),
+                },
+              },
+            }
+          }),
+
+        unregisterUSDTIncome: (monthId) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month) return s
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...month,
+                  usdtSettings: { ...month.usdtSettings, received: false },
+                  bankAccounts: month.bankAccounts.map(a => ({
+                    ...a,
+                    transactions: a.transactions.filter(tx => tx.linkedBillId !== '__usdt_received__'),
                   })),
                 },
               },
