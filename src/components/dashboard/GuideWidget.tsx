@@ -49,7 +49,7 @@ const STEPS: Step[] = [
       'Digite o valor do salário (ex: 10000)',
       'Pressione Enter para salvar',
     ],
-    tip: 'Depois de registrar a renda, vá em Contas Bancárias → "Lançar Salário" para criar as movimentações automáticas (entrada + dízimo). O CDB você aloca manualmente quando quiser.',
+    tip: 'Depois de registrar a renda, vá em Contas Bancárias → "Lançar Salário" para criar a movimentação automática de entrada. O CDB você aloca manualmente quando quiser.',
   },
   {
     id: 'usdt',
@@ -92,7 +92,7 @@ const STEPS: Step[] = [
     description: 'Em Contas Bancárias, defina o saldo atual de cada conta. Isso é a base do seu patrimônio real.',
     substeps: [
       'Acesse Contas Bancárias no menu lateral',
-      'Para cada conta (Operacional, USDT, Investimento, Dízimo), clique em "✏ Editar" ao lado do Saldo Inicial',
+      'Para cada conta (Operacional, USDT, Investimento BR), clique em "✏ Editar" ao lado do Saldo Inicial',
       'Digite o saldo atual que você tem nessa conta hoje',
       'Clique ✓ para confirmar',
       'Use "+ Nova transação" para registrar movimentações manuais',
@@ -113,7 +113,7 @@ const STEPS: Step[] = [
       'Use "Registrar Gasto" para marcar valores gastos em cada categoria',
       'Use "Mover Valor" para transferir entre categorias quando necessário',
     ],
-    tip: 'O saldo livre é calculado como: USDT recebido − dízimo − total de contas. Só aparece após configurar USDT e marcar como recebido.',
+    tip: 'O saldo livre é calculado como: Renda Total − total de contas. Só aparece após configurar USDT e marcar como recebido.',
   },
   {
     id: 'goals',
@@ -291,8 +291,7 @@ export function GuideWidget() {
           {[
             { term: 'Renda Fixa', def: 'Seu salário mensal em BRL. Lançado até o 5º dia útil.' },
             { term: 'USDT', def: 'Sua comissão em dólares. Só conta quando você clicar em "Recebi".' },
-            { term: 'Dízimo', def: '10% da renda total destinado automaticamente à conta Dízimo.' },
-            { term: 'Saldo Livre', def: 'O que sobra após dízimo e contas — base para a alocação 50-30-20.' },
+            { term: 'Saldo Livre', def: 'O que sobra após pagar todas as contas — base para a alocação 50-30-20.' },
             { term: 'CDB', def: 'Investimento de renda fixa BR. Você aloca manualmente quando quiser.' },
             { term: 'APY', def: 'Juros anuais que seus USDT rendem na plataforma (ex: 12% a.a.).' },
             { term: 'Alocação', def: 'Como dividir o saldo livre: 50% necessidades, 30% desejos, 20% investimentos.' },

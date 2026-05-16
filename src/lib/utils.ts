@@ -81,8 +81,8 @@ export function calcTotalIncome(data: MonthlyData): number {
 }
 
 /**
- * For CDB mode (May): fixed income → dízimo R$1k → CDB R$9k.
- * Returns the amount of fixed income available for bills (0 in CDB mode).
+ * Returns the amount of fixed income available for bills.
+ * 0 when fixedIncomeToCDB is true (salary goes directly to CDB).
  */
 export function calcFixedIncomeForBills(data: MonthlyData): number {
   return data.fixedIncomeToCDB ? 0 : data.fixedIncome

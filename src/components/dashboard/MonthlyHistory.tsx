@@ -96,7 +96,7 @@ export function MonthlyHistory() {
         </CardContent>
       </Card>
 
-      {/* Bar chart - bills and tithe */}
+      {/* Bar chart - bills vs free balance */}
       <Card>
         <CardHeader><CardTitle>Contas × Saldo Livre</CardTitle></CardHeader>
         <CardContent className="pt-4">

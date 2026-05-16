@@ -102,7 +102,7 @@ interface FinanceStore {
 
   updateAccountInitialBalance: (monthId: string, accountId: string, balance: number) => void
 
-  /** Create salary transactions: chosen account +salário, -dízimo; Dízimo +dízimo. CDB é alocado manualmente. */
+  /** Create salary entrada transaction on the chosen account. CDB é alocado manualmente. */
   registerSalary: (monthId: string, incomeAccountId: string) => void
   /** Remove all salary-linked transactions (undo registerSalary) */
   unregisterSalary: (monthId: string) => void
@@ -176,13 +176,17 @@ export const useFinanceStore = create<FinanceStore>()(
         // ── Auth / Supabase sync ────────────────────────────────────────────
 
         loadFromSupabase: (userId, data) => {
-          // Migration: strip legacy grossAmount/discount fields
+          // Migration: strip legacy grossAmount/discount fields + remove dizimo bank accounts
           let cleanedMonths = data.months
           if (cleanedMonths) {
             const cleaned: Record<string, MonthlyData> = {}
             for (const [id, m] of Object.entries(cleanedMonths)) {
               const { grossAmount, discount, discountLabel, ...cleanSettings } = m.usdtSettings as any
-              cleaned[id] = { ...m, usdtSettings: cleanSettings }
+              cleaned[id] = {
+                ...m,
+                usdtSettings: cleanSettings,
+                bankAccounts: (m.bankAccounts || []).filter((a: any) => a.type !== 'dizimo'),
+              }
             }
             cleanedMonths = cleaned
           }
@@ -849,12 +853,16 @@ export const useFinanceStore = create<FinanceStore>()(
       name: 'finance-dashboard-v2',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
-        // Migration: strip legacy grossAmount/discount fields from all months
+        // Migration: strip legacy grossAmount/discount fields + remove dizimo bank accounts
         if (state?.months) {
           const cleaned: Record<string, MonthlyData> = {}
           for (const [id, m] of Object.entries(state.months)) {
             const { grossAmount, discount, discountLabel, ...cleanSettings } = m.usdtSettings as any
-            cleaned[id] = { ...m, usdtSettings: cleanSettings }
+            cleaned[id] = {
+              ...m,
+              usdtSettings: cleanSettings,
+              bankAccounts: (m.bankAccounts || []).filter((a: any) => a.type !== 'dizimo'),
+            }
           }
           state.months = cleaned
         }
