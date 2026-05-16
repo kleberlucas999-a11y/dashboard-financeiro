@@ -31,15 +31,25 @@ interface ParsedRow {
   original: string[]
 }
 
+/** Strip BOM, carriage returns and other invisible chars that corrupt field comparisons */
+function sanitize(s: string): string {
+  return s.replace(/^﻿/, '').replace(/\r/g, '').trim()
+}
+
 function parseCSV(text: string): ParsedRow[] {
-  const lines = text.split(/\r?\n/).filter(l => l.trim())
+  // Strip BOM from the whole file first
+  const clean = text.replace(/^﻿/, '')
+  const lines = clean.split(/\r?\n/).filter(l => l.trim())
   if (lines.length < 2) return []
+
+  // Auto-detect delimiter: semicolons (Excel PT-BR) or commas
+  const delimiter = lines[0].includes(';') ? ';' : ','
 
   // Skip header
   const dataLines = lines.slice(1)
 
   return dataLines.map((line) => {
-    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
+    const cols = line.split(delimiter).map(c => sanitize(c.replace(/^"|"$/g, '')))
     const [rawDate, descricao, rawValor, categoria, tipo, conta, rawStatus] = cols
     const errors: string[] = []
 
@@ -51,25 +61,27 @@ function parseCSV(text: string): ParsedRow[] {
 
     if (!descricao?.trim()) errors.push('Descrição obrigatória')
 
-    const cat = (categoria ?? '').toLowerCase() as DailyExpenseCategory
-    if (!VALID_CATEGORIES.includes(cat)) errors.push(`Categoria inválida: "${categoria}" (use: alimentacao, transporte, lazer, saude, servico, compras, outro)`)
+    // Category: normalize and accept anything — unknown → 'outro' without error
+    const cat = sanitize(categoria ?? '').toLowerCase() as DailyExpenseCategory
+    const resolvedCat: DailyExpenseCategory = VALID_CATEGORIES.includes(cat) ? cat : 'outro'
 
-    const tip = (tipo ?? '').toLowerCase()
-    if (!VALID_TIPOS.includes(tip)) errors.push(`Tipo inválido: "${tipo}"`)
+    const tip = sanitize(tipo ?? '').toLowerCase()
+    if (!VALID_TIPOS.includes(tip)) errors.push(`Tipo inválido: "${tipo}" (use: custo, lazer, investimento)`)
 
-    const cnt = (conta ?? '').toLowerCase()
-    if (!VALID_CONTAS.includes(cnt)) errors.push(`Conta inválida: "${conta}"`)
+    const cnt = sanitize(conta ?? '').toLowerCase()
+    if (!VALID_CONTAS.includes(cnt)) errors.push(`Conta inválida: "${conta}" (use: operacional, usdt, cartao_credito)`)
 
-    const status = ((rawStatus ?? 'pago').toLowerCase()) as 'pago' | 'pendente'
+    const rawSt = sanitize(rawStatus ?? '')
+    const status = (rawSt.toLowerCase() === 'pendente' ? 'pendente' : 'pago') as 'pago' | 'pendente'
 
     const row: ImportRow = {
       date: date ?? '',
       description: descricao?.trim() ?? '',
       amount: isNaN(amount) ? 0 : amount,
-      category: VALID_CATEGORIES.includes(cat) ? cat : 'outro',
+      category: resolvedCat,
       tipo: VALID_TIPOS.includes(tip) ? tip as ImportRow['tipo'] : 'custo',
       conta: VALID_CONTAS.includes(cnt) ? cnt as ImportRow['conta'] : 'operacional',
-      status: status === 'pendente' ? 'pendente' : 'pago',
+      status,
     }
 
     return { row, valid: errors.length === 0, errors, original: cols }
