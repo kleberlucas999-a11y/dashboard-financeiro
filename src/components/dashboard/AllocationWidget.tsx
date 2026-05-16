@@ -8,7 +8,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { formatBRL, calcTotalIncome, calcFreeBalance } from '@/lib/utils'
+import { formatBRL, calcTotalIncome, calcFreeBalance, calcUSDTNet } from '@/lib/utils'
 import {
   ArrowRight, AlertTriangle, CheckCircle2, PlayCircle,
   Receipt, PauseCircle, Pencil, Check, X,
@@ -299,8 +299,42 @@ export function AllocationWidget() {
   const budgets: Record<AllocationKey, number> = {
     needs: needsBudget, wants: wantsBudget, invest: investBudget,
   }
-  const spent: Record<AllocationKey, number> = {
-    needs: alloc.needsSpent, wants: alloc.wantsSpent, invest: alloc.investSpent,
+
+  // ── Auto-spent: calculated from actual records ─────────────────────────────
+  const rate = month.exchangeRate || 5.02
+  const dailyExpenses = month.dailyExpenses ?? []
+
+  // Helper: convert daily expense to BRL
+  const expToBRL = (e: { amount: number; conta: string }) =>
+    e.conta === 'usdt' ? e.amount * rate : e.amount
+
+  // Despesas = paid bills + daily custo
+  const paidBillsTotal = month.bills
+    .filter(b => b.status === 'pago')
+    .reduce((s, b) => s + b.amount, 0)
+  const dailyCusto = dailyExpenses
+    .filter(e => (e.tipo ?? 'custo') === 'custo')
+    .reduce((s, e) => s + expToBRL(e), 0)
+  const needsSpentAuto = paidBillsTotal + dailyCusto
+
+  // Lazer = daily lazer
+  const wantsSpentAuto = dailyExpenses
+    .filter(e => e.tipo === 'lazer')
+    .reduce((s, e) => s + expToBRL(e), 0)
+
+  // Investimentos = daily investimento
+  const investSpentAuto = dailyExpenses
+    .filter(e => e.tipo === 'investimento')
+    .reduce((s, e) => s + expToBRL(e), 0)
+
+  const autoSpent: Record<AllocationKey, number> = {
+    needs: needsSpentAuto, wants: wantsSpentAuto, invest: investSpentAuto,
+  }
+  // Detail labels for spent breakdown
+  const spentDetail: Record<AllocationKey, string> = {
+    needs: `${paidBillsTotal > 0 ? `Contas pagas: ${formatBRL(paidBillsTotal)}` : ''}${paidBillsTotal > 0 && dailyCusto > 0 ? ' + ' : ''}${dailyCusto > 0 ? `Gastos diários: ${formatBRL(dailyCusto)}` : ''}` || 'Nenhum gasto registrado',
+    wants:  wantsSpentAuto > 0 ? `${dailyExpenses.filter(e => e.tipo === 'lazer').length} gasto(s) de lazer` : 'Nenhum gasto de lazer',
+    invest: investSpentAuto > 0 ? `${dailyExpenses.filter(e => e.tipo === 'investimento').length} gasto(s) de investimento` : 'Nenhum gasto de investimento',
   }
 
   const sliderTotal = alloc.needsPercent + alloc.wantsPercent + alloc.investPercent
@@ -411,33 +445,36 @@ export function AllocationWidget() {
           {/* ── Summary cards ──────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {(['needs', 'wants', 'invest'] as AllocationKey[]).map((key) => {
-              const over = spent[key] > budgets[key]
-              // hint for Despesas: show if budget drifted far from actual bills
-              const isDespesas = key === 'needs'
-              const drift = isDespesas ? budgets[key] - totalCosts : null
+              const budget    = budgets[key]
+              const spentVal  = autoSpent[key]
+              const remaining = budget - spentVal
+              const over      = spentVal > budget
+              const usedPct   = budget > 0 ? Math.min(100, (spentVal / budget) * 100) : 0
               return (
-                <Card key={key} className={`hover:border-[#243048] transition-colors ${over ? 'border-[#f06060]/30' : ''}`}>
-                  <CardContent className="p-5">
+                <Card key={key} className={`hover:border-[#243048] transition-colors ${over ? 'border-[#f06060]/40' : ''}`}>
+                  <CardContent className="p-5 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-xs text-[#8898aa] uppercase tracking-wider mb-1">{ALLOC_LABELS[key]}</p>
                         <p className="text-xl font-mono font-bold" style={{ color: ALLOC_COLORS[key] }}>
                           {alloc[`${key}Percent` as 'needsPercent' | 'wantsPercent' | 'investPercent']}%
                         </p>
-                        <p className="text-sm font-mono text-[#e8ecf4] mt-1">{formatBRL(budgets[key])}</p>
-                        {/* Hint: real bills vs allocated for Despesas */}
-                        {isDespesas && drift !== null && Math.abs(drift) > 10 && (
-                          <p className="text-[10px] mt-1" style={{ color: drift < 0 ? '#f06060' : '#00d4a0' }}>
-                            {drift < 0
-                              ? `⚠ contas: ${formatBRL(totalCosts)} (+${formatBRL(-drift)} descoberto)`
-                              : `Contas: ${formatBRL(totalCosts)} · sobra ${formatBRL(drift)}`}
-                          </p>
-                        )}
-                        {isDespesas && drift !== null && Math.abs(drift) <= 10 && (
-                          <p className="text-[10px] text-[#4a5568] mt-1">Alinhado com as contas</p>
-                        )}
+                        <p className="text-sm font-mono text-[#e8ecf4]">{formatBRL(budget)}</p>
                       </div>
-                      {over && <AlertTriangle size={16} className="text-[#f06060] mt-1" />}
+                      {over && <AlertTriangle size={16} className="text-[#f06060] mt-1 shrink-0" />}
+                    </div>
+                    {/* Mini progress */}
+                    <div className="space-y-1.5">
+                      <div className="h-1.5 bg-[#1a2030] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all"
+                          style={{ width: `${usedPct}%`, background: over ? '#f06060' : ALLOC_COLORS[key] }} />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-[#4a5568]">Gasto: <span className="font-mono text-[#e8ecf4]">{formatBRL(spentVal)}</span></span>
+                        <span className={over ? 'text-[#f06060] font-semibold' : 'text-[#00d4a0] font-semibold'}>
+                          {over ? `−${formatBRL(Math.abs(remaining))} excedido` : `+${formatBRL(remaining)} livre`}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -522,11 +559,11 @@ export function AllocationWidget() {
             </Card>
           </div>
 
-          {/* ── Spent tracking ─────────────────────────────────────── */}
+          {/* ── Acompanhamento automático ───────────────────────────── */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle>Gastos Reais por Categoria</CardTitle>
+                <CardTitle>Acompanhamento do Mês</CardTitle>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="outline" onClick={() => setShowMoveDialog(true)}>
                     <ArrowRight size={14} /> Mover Verba
@@ -540,32 +577,53 @@ export function AllocationWidget() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-5 pt-4">
+            <CardContent className="space-y-6 pt-4">
               {(['needs', 'wants', 'invest'] as AllocationKey[]).map((key) => {
                 const budget    = budgets[key]
-                const spentVal  = spent[key]
+                const spentVal  = autoSpent[key]
                 const remaining = budget - spentVal
                 const over      = spentVal > budget
+                const usedPct   = budget > 0 ? Math.min(100, (spentVal / budget) * 100) : 0
+
                 return (
-                  <div key={key} className="space-y-2">
-                    <div className="flex items-center justify-between">
+                  <div key={key} className="space-y-2.5">
+                    {/* Header row */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ALLOC_COLORS[key] }} />
-                        <span className="text-sm text-[#e8ecf4]">{ALLOC_LABELS[key]}</span>
-                        {over && <Badge variant="red">+{formatBRL(Math.abs(remaining))}</Badge>}
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ALLOC_COLORS[key] }} />
+                        <span className="text-sm font-semibold text-[#e8ecf4]">{ALLOC_LABELS[key]}</span>
+                        {over && <Badge variant="red">Excedido</Badge>}
                       </div>
-                      <span className="text-xs text-[#4a5568]">{formatBRL(spentVal)} / {formatBRL(budget)}</span>
-                    </div>
-                    <Progress value={spentVal} max={budget} color={over ? '#f06060' : ALLOC_COLORS[key]} size="md" />
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="number" prefix="R$"
-                        value={spentVal || ''} placeholder="0,00" className="text-sm"
-                        onChange={(e) => updateAllocationSpent(currentMonthId, key, parseFloat(e.target.value) || 0)}
-                      />
-                      <span className="text-xs text-[#4a5568] whitespace-nowrap">
-                        {over ? `⚠ ${formatBRL(Math.abs(remaining))} acima` : `${formatBRL(remaining)} restante`}
+                      <span className="text-xs font-mono text-[#4a5568]">
+                        {formatBRL(spentVal)} gastos / {formatBRL(budget)} orçado
                       </span>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="relative h-3 bg-[#1a2030] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${usedPct}%`, background: over ? '#f06060' : ALLOC_COLORS[key] }}
+                      />
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left: breakdown */}
+                      <p className="text-[11px] text-[#4a5568] leading-relaxed">{spentDetail[key]}</p>
+
+                      {/* Right: remaining pill */}
+                      <div className={`shrink-0 px-3 py-1.5 rounded-lg text-center min-w-[110px] ${
+                        over
+                          ? 'bg-[#f06060]/10 border border-[#f06060]/30'
+                          : 'bg-[#00d4a0]/08 border border-[#00d4a0]/20'
+                      }`}>
+                        <p className="text-[10px] text-[#4a5568]">{over ? 'Excedeu em' : 'Ainda pode gastar'}</p>
+                        <p className={`text-sm font-mono font-bold ${over ? 'text-[#f06060]' : 'text-[#00d4a0]'}`}>
+                          {formatBRL(Math.abs(remaining))}
+                        </p>
+                        <p className="text-[10px] text-[#4a5568]">{usedPct.toFixed(0)}% usado</p>
+                      </div>
                     </div>
                   </div>
                 )
