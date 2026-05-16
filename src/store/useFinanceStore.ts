@@ -136,6 +136,8 @@ interface FinanceStore {
 
   /** Remove all bills that were created via spreadsheet import (notes contain "Importado em") + their linked bank transactions */
   clearImportedBills: (monthId: string) => void
+  /** Remove bank transactions whose linkedBillId no longer matches any bill/expense/special ID */
+  cleanOrphanedTransactions: (monthId: string) => void
 
   // Daily expenses
   addDailyExpense: (monthId: string, expense: Omit<DailyExpense, 'id'>) => void
@@ -332,7 +334,18 @@ export const useFinanceStore = create<FinanceStore>()(
 
         deleteBill: (monthId, billId) =>
           set((s) => ({
-            months: { ...s.months, [monthId]: { ...s.months[monthId], bills: s.months[monthId].bills.filter((b) => b.id !== billId) } },
+            months: {
+              ...s.months,
+              [monthId]: {
+                ...s.months[monthId],
+                bills: s.months[monthId].bills.filter((b) => b.id !== billId),
+                // Also remove any bank transaction linked to this bill
+                bankAccounts: s.months[monthId].bankAccounts.map((acc) => ({
+                  ...acc,
+                  transactions: acc.transactions.filter((tx) => tx.linkedBillId !== billId),
+                })),
+              },
+            },
           })),
 
         setBillStatus: (monthId, billId, status) =>
@@ -538,7 +551,14 @@ export const useFinanceStore = create<FinanceStore>()(
                   usdtSettings: { ...month.usdtSettings, received: true },
                   bankAccounts: month.bankAccounts.map(a =>
                     a.id === usdtAcc.id
-                      ? { ...a, transactions: [...a.transactions, tx] }
+                      ? {
+                          ...a,
+                          // Remove any existing entry first (idempotent) then add fresh
+                          transactions: [
+                            ...a.transactions.filter(t => t.linkedBillId !== '__usdt_received__'),
+                            tx,
+                          ],
+                        }
                       : a
                   ),
                 },
@@ -735,6 +755,35 @@ export const useFinanceStore = create<FinanceStore>()(
                   bankAccounts: month.bankAccounts.map(acc => ({
                     ...acc,
                     transactions: acc.transactions.filter(tx => !tx.linkedBillId || !importedIds.has(tx.linkedBillId)),
+                  })),
+                },
+              },
+            }
+          }),
+
+        cleanOrphanedTransactions: (monthId) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month) return s
+            // Build the complete set of valid linkedBillId values for this month
+            const validIds = new Set<string>([
+              '__salary__',
+              '__usdt_received__',
+              '__dizimo__',
+              ...month.bills.map(b => b.id),
+              ...(month.overdueBills || []).map(b => b.id),
+              ...(month.dailyExpenses || []).map(e => `__daily__${e.id}`),
+            ])
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...month,
+                  bankAccounts: month.bankAccounts.map(acc => ({
+                    ...acc,
+                    transactions: acc.transactions.filter(tx =>
+                      !tx.linkedBillId || validIds.has(tx.linkedBillId)
+                    ),
                   })),
                 },
               },

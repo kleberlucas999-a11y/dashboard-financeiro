@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog } from '@/components/ui/dialog'
 import { formatBRL, formatUSDT } from '@/lib/utils'
 import { BankAccount } from '@/types'
-import { Plus, Trash2, Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, Pencil, Check, X, Banknote, RotateCcw, CreditCard } from 'lucide-react'
+import { Plus, Trash2, Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, Pencil, Check, X, Banknote, RotateCcw, CreditCard, AlertTriangle, Wrench } from 'lucide-react'
 
 /** Raw balance in the account's native currency (USD for usdt, BRL for others) */
 function calcAccountBalance(acc: BankAccount): number {
@@ -160,7 +160,7 @@ function SalaryAccountPicker({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export function BankAccounts() {
-  const { currentMonthId, getCurrentMonth, exchangeRate, addBankTransaction, deleteBankTransaction, updateAccountInitialBalance, registerSalary, unregisterSalary, isSalaryRegistered } = useFinanceStore()
+  const { currentMonthId, getCurrentMonth, exchangeRate, addBankTransaction, deleteBankTransaction, updateAccountInitialBalance, registerSalary, unregisterSalary, isSalaryRegistered, registerUSDTIncome, cleanOrphanedTransactions } = useFinanceStore()
   const month = getCurrentMonth()
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [showTxForm, setShowTxForm] = useState(false)
@@ -171,6 +171,12 @@ export function BankAccounts() {
 
   const rate = month.exchangeRate || exchangeRate.rate
   const salaryRegistered = isSalaryRegistered(currentMonthId)
+
+  // Detect USDT received flag set but no bank transaction created (old data)
+  const usdtAcc = month.bankAccounts.find(a => a.type === 'usdt')
+  const usdtReceived = month.usdtSettings.received !== false
+  const hasUsdtTx = !!usdtAcc?.transactions.some(tx => tx.linkedBillId === '__usdt_received__')
+  const usdtNeedsRepair = usdtReceived && !hasUsdtTx
 
   // Find which account received the salary (has entrada linked to __salary__)
   const salaryAccount = salaryRegistered
@@ -248,6 +254,32 @@ export function BankAccounts() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Repair banners ──────────────────────────────────────────────── */}
+      {usdtNeedsRepair && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#f5a020]/40 bg-[#f5a020]/08">
+          <AlertTriangle size={16} className="text-[#f5a020] shrink-0" />
+          <p className="text-sm text-[#f5a020] flex-1">
+            Comissão USDT marcada como recebida mas sem entrada no extrato.
+          </p>
+          <button
+            onClick={() => registerUSDTIncome(currentMonthId)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f5a020]/20 border border-[#f5a020]/40 text-[#f5a020] hover:bg-[#f5a020]/30 cursor-pointer transition-all shrink-0"
+          >
+            <Wrench size={12} /> Corrigir entrada
+          </button>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => cleanOrphanedTransactions(currentMonthId)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-[#4a5568] hover:text-[#e8ecf4] hover:bg-[#1a2030] border border-[#1a2030] cursor-pointer transition-all"
+          title="Remove transações cujos registros de origem foram deletados"
+        >
+          <Wrench size={12} /> Reparar extrato
+        </button>
+      </div>
 
       {/* ── Salary registration ─────────────────────────────────────────── */}
       <Card className={salaryRegistered ? 'border-[#00d4a0]/30' : 'border-[#f5a020]/30'}>
