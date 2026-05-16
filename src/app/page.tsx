@@ -20,6 +20,7 @@ import { GoalsWidget } from '@/components/dashboard/GoalsWidget'
 import { AdvisorWidget } from '@/components/dashboard/AdvisorWidget'
 import { ProfileWidget } from '@/components/dashboard/ProfileWidget'
 import { GuideWidget } from '@/components/dashboard/GuideWidget'
+import { DailyExpensesWidget } from '@/components/dashboard/DailyExpensesWidget'
 import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav'
 import { MobileDrawer } from '@/components/layout/MobileDrawer'
@@ -27,6 +28,7 @@ import { MobileDrawer } from '@/components/layout/MobileDrawer'
 const SECTION_TITLES: Record<string, string> = {
   overview: 'Visão Geral',
   bills: 'Gestão de Contas',
+  daily: 'Gastos Diários',
   usdt: 'USDT & APY',
   allocation: 'Alocação 50-30-20',
   calendar: 'Calendário Mensal',
@@ -43,6 +45,7 @@ const SECTION_TITLES: Record<string, string> = {
 const SECTION_SUBS: Record<string, string> = {
   overview: 'Resumo financeiro do mês',
   bills: 'CRUD de contas fixas e variáveis',
+  daily: 'Registro rápido de gastos do dia a dia',
   usdt: 'Câmbio, conversões e projeção APY',
   allocation: 'Distribuição do saldo livre',
   calendar: 'Eventos e vencimentos do mês',
@@ -150,6 +153,7 @@ export default function Dashboard() {
           {/* Section content */}
           {activeSection === 'overview' && <OverviewWidget />}
           {activeSection === 'bills' && <BillsManagement />}
+          {activeSection === 'daily' && <DailyExpensesWidget />}
           {activeSection === 'usdt' && <USDTManagement />}
           {activeSection === 'allocation' && <AllocationWidget />}
           {activeSection === 'calendar' && <MonthlyCalendar />}

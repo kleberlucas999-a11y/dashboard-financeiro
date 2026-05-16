@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation'
 import {
   X, LayoutDashboard, Receipt, Bitcoin, PieChart, CalendarDays,
   Landmark, History, BellRing, TrendingUp, Map, Target, Bot,
-  UserCircle, BookOpen, LogOut,
+  UserCircle, BookOpen, LogOut, ShoppingCart,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { id: 'overview',   label: 'Visão Geral',      icon: LayoutDashboard },
   { id: 'bills',      label: 'Contas',            icon: Receipt },
+  { id: 'daily',      label: 'Gastos Diários',    icon: ShoppingCart },
   { id: 'usdt',       label: 'USDT / APY',        icon: Bitcoin },
   { id: 'allocation', label: 'Alocação 50-30-20', icon: PieChart },
   { id: 'calendar',   label: 'Calendário',        icon: CalendarDays },

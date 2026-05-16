@@ -5,7 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import {
   Bill, BillStatus, MonthlyData, ExchangeRate, USDTSettings,
   Allocation, AllocationKey, AllocationMovement, USDTConversion, BankTransaction,
-  UserProfile, FinancialGoal, AdvisorMessage, BankAccount,
+  UserProfile, FinancialGoal, AdvisorMessage, BankAccount, DailyExpense,
 } from '@/types'
 import { generateId, getMonthId, parseMonthId } from '@/lib/utils'
 import { supabase } from '@/lib/supabase/client'
@@ -138,6 +138,11 @@ interface FinanceStore {
   deleteBankTransaction: (monthId: string, accountId: string, txId: string) => void
 
   importExpenses: (monthId: string, rows: ImportRow[]) => void
+
+  // Daily expenses
+  addDailyExpense: (monthId: string, expense: Omit<DailyExpense, 'id'>) => void
+  updateDailyExpense: (monthId: string, expenseId: string, updates: Partial<DailyExpense>) => void
+  deleteDailyExpense: (monthId: string, expenseId: string) => void
 
   setSidebarOpen: (open: boolean) => void
   setActiveSection: (section: string) => void
@@ -671,6 +676,83 @@ export const useFinanceStore = create<FinanceStore>()(
                 [monthId]: {
                   ...updatedMonth,
                   bills: [...updatedMonth.bills, ...newBills],
+                },
+              },
+            }
+          }),
+
+        // ── Daily expenses ──────────────────────────────────────────────────
+        addDailyExpense: (monthId, expense) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month) return s
+            const id = generateId()
+            const newExpense: DailyExpense = { ...expense, id }
+
+            // Create bank transaction for non-credit-card accounts
+            let updatedAccounts = month.bankAccounts
+            if (expense.conta !== 'cartao_credito') {
+              const accType = expense.conta === 'usdt' ? 'usdt' : 'operacional'
+              updatedAccounts = month.bankAccounts.map((acc) => {
+                if (acc.type === accType) {
+                  const tx: BankTransaction = {
+                    id: generateId(),
+                    date: expense.date,
+                    description: expense.description,
+                    amount: expense.amount,
+                    type: 'saida',
+                    linkedBillId: `__daily__${id}`,
+                  }
+                  return { ...acc, transactions: [...acc.transactions, tx] }
+                }
+                return acc
+              })
+            }
+
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...month,
+                  dailyExpenses: [...(month.dailyExpenses ?? []), newExpense],
+                  bankAccounts: updatedAccounts,
+                },
+              },
+            }
+          }),
+
+        updateDailyExpense: (monthId, expenseId, updates) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month) return s
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...month,
+                  dailyExpenses: (month.dailyExpenses ?? []).map((e) =>
+                    e.id === expenseId ? { ...e, ...updates } : e
+                  ),
+                },
+              },
+            }
+          }),
+
+        deleteDailyExpense: (monthId, expenseId) =>
+          set((s) => {
+            const month = s.months[monthId]
+            if (!month) return s
+            return {
+              months: {
+                ...s.months,
+                [monthId]: {
+                  ...month,
+                  dailyExpenses: (month.dailyExpenses ?? []).filter((e) => e.id !== expenseId),
+                  // Remove linked bank transaction
+                  bankAccounts: month.bankAccounts.map((acc) => ({
+                    ...acc,
+                    transactions: acc.transactions.filter((tx) => tx.linkedBillId !== `__daily__${expenseId}`),
+                  })),
                 },
               },
             }

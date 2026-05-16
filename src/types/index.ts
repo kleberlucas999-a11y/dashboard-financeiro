@@ -121,6 +121,19 @@ export interface USDTSettings {
   received?: boolean
 }
 
+export type DailyExpenseCategory = 'alimentacao' | 'transporte' | 'lazer' | 'saude' | 'servico' | 'compras' | 'outro'
+export type DailyExpenseConta = 'operacional' | 'usdt' | 'cartao_credito'
+
+export interface DailyExpense {
+  id: string
+  date: string           // YYYY-MM-DD
+  description: string
+  amount: number         // always in native currency (USDT for usdt, BRL otherwise)
+  category: DailyExpenseCategory
+  conta: DailyExpenseConta
+  notes?: string
+}
+
 export interface MonthlyData {
   id: string
   year: number
@@ -130,6 +143,7 @@ export interface MonthlyData {
   exchangeRate: number
   bills: Bill[]
   overdueBills?: Bill[]
+  dailyExpenses?: DailyExpense[]
   fixedIncomeToCDB?: boolean
   allocation: Allocation
   conversions: USDTConversion[]

@@ -3,14 +3,14 @@ import { cn } from '@/lib/utils'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import {
   LayoutDashboard, Receipt, Landmark, History, MoreHorizontal,
-  PieChart, CalendarDays, Bitcoin, BellRing, Map, Target, Bot, UserCircle, BookOpen,
+  PieChart, CalendarDays, Bitcoin, BellRing, Map, Target, Bot, UserCircle, BookOpen, ShoppingCart,
 } from 'lucide-react'
 
 const PRIMARY_NAV = [
   { id: 'overview',  label: 'Geral',    icon: LayoutDashboard },
   { id: 'bills',     label: 'Contas',   icon: Receipt },
+  { id: 'daily',     label: 'Gastos',   icon: ShoppingCart },
   { id: 'accounts',  label: 'Bancário', icon: Landmark },
-  { id: 'history',   label: 'Histórico',icon: History },
 ]
 
 export function MobileBottomNav({ onOpenMenu }: { onOpenMenu: () => void }) {

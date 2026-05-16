@@ -6,18 +6,19 @@ import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Receipt, Bitcoin, PieChart, CalendarDays,
   Landmark, History, BellRing, ChevronLeft, ChevronRight,
-  TrendingUp, Map, Target, Bot, UserCircle, BookOpen, LogOut,
+  TrendingUp, Map, Target, Bot, UserCircle, BookOpen, LogOut, ShoppingCart,
 } from 'lucide-react'
 
 const navItems = [
-  { id: 'overview',    label: 'Visão Geral',       icon: LayoutDashboard },
-  { id: 'bills',       label: 'Contas',             icon: Receipt },
-  { id: 'usdt',        label: 'USDT / APY',         icon: Bitcoin },
-  { id: 'allocation',  label: 'Alocação 50-30-20',  icon: PieChart },
-  { id: 'calendar',    label: 'Calendário',         icon: CalendarDays },
-  { id: 'accounts',    label: 'Contas Bancárias',   icon: Landmark },
-  { id: 'history',     label: 'Histórico',          icon: History },
-  { id: 'alerts',      label: 'Alertas',            icon: BellRing },
+  { id: 'overview',       label: 'Visão Geral',       icon: LayoutDashboard },
+  { id: 'bills',          label: 'Contas',             icon: Receipt },
+  { id: 'daily',          label: 'Gastos Diários',     icon: ShoppingCart },
+  { id: 'usdt',           label: 'USDT / APY',         icon: Bitcoin },
+  { id: 'allocation',     label: 'Alocação 50-30-20',  icon: PieChart },
+  { id: 'calendar',       label: 'Calendário',         icon: CalendarDays },
+  { id: 'accounts',       label: 'Contas Bancárias',   icon: Landmark },
+  { id: 'history',        label: 'Histórico',          icon: History },
+  { id: 'alerts',         label: 'Alertas',            icon: BellRing },
 ]
 
 const planningItem = { id: 'planning', label: 'Planejamento', icon: Map }
