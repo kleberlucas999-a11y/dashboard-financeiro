@@ -79,14 +79,11 @@ export function calcUSDTNet(data: MonthlyData): number {
   return s.monthlyAmount
 }
 
-/** Gross income (fixed + all USDT converted) — used for display/history */
+/** Total income received in BRL (fixed + full USDT — not filtered by convertPercent) */
 export function calcTotalIncome(data: MonthlyData): number {
   const rate = data.exchangeRate || 5.02
   const usdtNet = calcUSDTNet(data)
-  const usdtBRL = calcUSDTInBRL(
-    usdtNet * (data.usdtSettings.convertPercent / 100),
-    rate
-  )
+  const usdtBRL = calcUSDTInBRL(usdtNet, rate)
   return data.fixedIncome + usdtBRL
 }
 

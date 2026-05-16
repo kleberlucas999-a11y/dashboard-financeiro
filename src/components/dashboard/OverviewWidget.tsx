@@ -227,7 +227,7 @@ export function OverviewWidget() {
   const totalIncome = calcTotalIncome(month)
   const tithe = calcTotalTithe(month)
   const usdtNet = calcUSDTNet(month)
-  const usdtConverted = calcUSDTInBRL(usdtNet * (month.usdtSettings.convertPercent / 100), rate)
+  const usdtConverted = calcUSDTInBRL(usdtNet, rate)
 
   const activeBills = month.bills.filter((b) => b.status !== 'quitado')
   const totalBills = activeBills.reduce((s, b) => s + b.amount, 0)
