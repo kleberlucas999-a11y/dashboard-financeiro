@@ -176,7 +176,7 @@ export const useFinanceStore = create<FinanceStore>()(
         // ── Auth / Supabase sync ────────────────────────────────────────────
 
         loadFromSupabase: (userId, data) => {
-          // Migration: strip legacy grossAmount/discount fields + remove dizimo bank accounts
+          // Migration: strip legacy grossAmount/discount fields + remove dizimo bank accounts + remove tithe saida transactions
           let cleanedMonths = data.months
           if (cleanedMonths) {
             const cleaned: Record<string, MonthlyData> = {}
@@ -185,7 +185,15 @@ export const useFinanceStore = create<FinanceStore>()(
               cleaned[id] = {
                 ...m,
                 usdtSettings: cleanSettings,
-                bankAccounts: (m.bankAccounts || []).filter((a: any) => a.type !== 'dizimo'),
+                bankAccounts: (m.bankAccounts || [])
+                  .filter((a: any) => a.type !== 'dizimo')
+                  .map((a: any) => ({
+                    ...a,
+                    // Remove old automatic tithe deduction (saida linked to __salary__)
+                    transactions: (a.transactions || []).filter(
+                      (tx: any) => !(tx.linkedBillId === '__salary__' && tx.type === 'saida')
+                    ),
+                  })),
               }
             }
             cleanedMonths = cleaned
@@ -853,7 +861,7 @@ export const useFinanceStore = create<FinanceStore>()(
       name: 'finance-dashboard-v2',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
-        // Migration: strip legacy grossAmount/discount fields + remove dizimo bank accounts
+        // Migration: strip legacy grossAmount/discount fields + remove dizimo bank accounts + remove tithe saida transactions
         if (state?.months) {
           const cleaned: Record<string, MonthlyData> = {}
           for (const [id, m] of Object.entries(state.months)) {
@@ -861,7 +869,15 @@ export const useFinanceStore = create<FinanceStore>()(
             cleaned[id] = {
               ...m,
               usdtSettings: cleanSettings,
-              bankAccounts: (m.bankAccounts || []).filter((a: any) => a.type !== 'dizimo'),
+              bankAccounts: (m.bankAccounts || [])
+                .filter((a: any) => a.type !== 'dizimo')
+                .map((a: any) => ({
+                  ...a,
+                  // Remove old automatic tithe deduction (saida linked to __salary__)
+                  transactions: (a.transactions || []).filter(
+                    (tx: any) => !(tx.linkedBillId === '__salary__' && tx.type === 'saida')
+                  ),
+                })),
             }
           }
           state.months = cleaned
