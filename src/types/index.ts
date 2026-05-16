@@ -147,6 +147,7 @@ export interface MonthlyData {
   dailyExpenses?: DailyExpense[]
   fixedIncomeToCDB?: boolean
   allocation: Allocation
+  allocationActive?: boolean   // user manually activates when ready to allocate
   conversions: USDTConversion[]
   bankAccounts: BankAccount[]
   notes: string

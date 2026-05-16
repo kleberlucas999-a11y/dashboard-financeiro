@@ -124,6 +124,7 @@ interface FinanceStore {
   updateAllocationPercents: (monthId: string, needs: number, wants: number, invest: number) => void
   updateAllocationSpent: (monthId: string, key: AllocationKey, amount: number) => void
   moveAllocation: (monthId: string, from: AllocationKey, to: AllocationKey, amount: number, reason: string) => void
+  setAllocationActive: (monthId: string, active: boolean) => void
 
   addBankTransaction: (monthId: string, accountId: string, tx: Omit<BankTransaction, 'id'>) => void
   deleteBankTransaction: (monthId: string, accountId: string, txId: string) => void
@@ -606,6 +607,11 @@ export const useFinanceStore = create<FinanceStore>()(
         deleteConversion: (monthId, conversionId) =>
           set((s) => ({
             months: { ...s.months, [monthId]: { ...s.months[monthId], conversions: s.months[monthId].conversions.filter((c) => c.id !== conversionId) } },
+          })),
+
+        setAllocationActive: (monthId, active) =>
+          set((s) => ({
+            months: { ...s.months, [monthId]: { ...s.months[monthId], allocationActive: active } },
           })),
 
         updateAllocationPercents: (monthId, needs, wants, invest) =>
