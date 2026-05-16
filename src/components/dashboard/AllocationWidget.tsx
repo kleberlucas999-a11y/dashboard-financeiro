@@ -11,10 +11,16 @@ import { Badge } from '@/components/ui/badge'
 import { formatBRL, calcTotalIncome, calcFreeBalance, calcUSDTNet } from '@/lib/utils'
 import {
   ArrowRight, AlertTriangle, CheckCircle2, PlayCircle,
-  Receipt, PauseCircle, Pencil, Check, X,
+  Receipt, PauseCircle, Pencil, Check, X, Landmark,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { AllocationKey } from '@/types'
+import { AllocationKey, BankAccount } from '@/types'
+
+// helper: balance in native currency (USD for usdt, BRL for others)
+function calcAccBalance(acc: BankAccount): number {
+  return (acc.initialBalance ?? 0) +
+    acc.transactions.reduce((s, t) => t.type === 'entrada' ? s + t.amount : s - t.amount, 0)
+}
 
 // ─── Category config ──────────────────────────────────────────────────────────
 // 'needs'  → Despesas / Custos  (slider, % of totalIncome — pre-filled from bills)
@@ -337,6 +343,16 @@ export function AllocationWidget() {
     invest: investSpentAuto > 0 ? `${dailyExpenses.filter(e => e.tipo === 'investimento').length} gasto(s) de investimento` : 'Nenhum gasto de investimento',
   }
 
+  // ── Bank account balances (shown inside each category card) ─────────────────
+  const accountBalancesBRL = month.bankAccounts
+    .filter(acc => (acc.type as string) !== 'dizimo')
+    .map(acc => {
+      const native = calcAccBalance(acc)
+      const brl    = acc.type === 'usdt' ? native * rate : native
+      return { id: acc.id, name: acc.name, color: acc.color, type: acc.type, native, brl }
+    })
+    .filter(acc => acc.brl !== 0)   // hide zero-balance accounts
+
   const sliderTotal = alloc.needsPercent + alloc.wantsPercent + alloc.investPercent
   const isValid = sliderTotal === 100
 
@@ -463,6 +479,7 @@ export function AllocationWidget() {
                       </div>
                       {over && <AlertTriangle size={16} className="text-[#f06060] mt-1 shrink-0" />}
                     </div>
+
                     {/* Mini progress */}
                     <div className="space-y-1.5">
                       <div className="h-1.5 bg-[#1a2030] rounded-full overflow-hidden">
@@ -476,6 +493,32 @@ export function AllocationWidget() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Account balances */}
+                    {accountBalancesBRL.length > 0 && (
+                      <div className="pt-2 border-t border-[#1a2030] space-y-1.5">
+                        <div className="flex items-center gap-1 mb-1">
+                          <Landmark size={10} className="text-[#4a5568]" />
+                          <span className="text-[10px] text-[#4a5568] uppercase tracking-wider">Saldo nas contas</span>
+                        </div>
+                        {accountBalancesBRL.map(acc => (
+                          <div key={acc.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: acc.color }} />
+                              <span className="text-[10px] text-[#8898aa]">{acc.name}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className={`text-[10px] font-mono font-semibold ${acc.brl < 0 ? 'text-[#f06060]' : 'text-[#e8ecf4]'}`}>
+                                {formatBRL(acc.brl)}
+                              </span>
+                              {acc.type === 'usdt' && (
+                                <span className="text-[9px] text-[#4a5568] ml-1">({acc.native.toFixed(2)} USDT)</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )
