@@ -245,6 +245,7 @@ function AddExpenseForm({ monthId, onDone }: { monthId: string; onDone: () => vo
     <form onSubmit={handleSubmit} className="bg-[#0d1117] border border-[#1a2030] rounded-xl p-4 space-y-3">
       <h3 className="text-sm font-semibold text-[#e8ecf4]">Novo gasto</h3>
 
+      {/* Row 1: Data + Conta — choose account first so currency is known */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-[#4a5568] block mb-1">Data</label>
@@ -252,13 +253,43 @@ function AddExpenseForm({ monthId, onDone }: { monthId: string; onDone: () => vo
             className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-3 py-2 text-sm text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50" />
         </div>
         <div>
-          <label className="text-xs text-[#4a5568] block mb-1">Valor {isUsdt ? '(USDT)' : '(R$)'}</label>
-          <input type="number" step="0.01" min="0" placeholder="0,00" value={amount} onChange={e => setAmount(e.target.value)}
-            className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-3 py-2 text-sm text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50" />
-          {isUsdt && !isNaN(parsedAmount) && parsedAmount > 0 && (
-            <p className="text-[10px] text-[#26a17b] mt-0.5">≈ {fmtBRL(parsedAmount * rate)}</p>
-          )}
+          <label className="text-xs text-[#4a5568] block mb-1">Conta</label>
+          <select value={conta} onChange={e => setConta(e.target.value as DailyExpenseConta)}
+            className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-3 py-2 text-sm text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50">
+            {(Object.keys(CONTA_LABELS) as DailyExpenseConta[]).map(c => (
+              <option key={c} value={c}>{CONTA_LABELS[c]}</option>
+            ))}
+          </select>
         </div>
+      </div>
+
+      {/* Row 2: Valor — prefix reflects selected account currency */}
+      <div>
+        <label className="text-xs text-[#4a5568] block mb-1">
+          Valor{' '}
+          <span className={`font-semibold ${isUsdt ? 'text-[#26a17b]' : 'text-[#8898aa]'}`}>
+            {isUsdt ? '$ (USD — lançar em dólar)' : 'R$'}
+          </span>
+        </label>
+        <div className="relative">
+          <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-mono select-none ${isUsdt ? 'text-[#26a17b]' : 'text-[#4a5568]'}`}>
+            {isUsdt ? '$' : 'R$'}
+          </span>
+          <input
+            type="number" step="0.01" min="0" placeholder="0,00"
+            value={amount} onChange={e => setAmount(e.target.value)}
+            className={`w-full bg-[#07090d] border rounded-lg pl-8 pr-3 py-2 text-sm text-[#e8ecf4] focus:outline-none ${
+              isUsdt ? 'border-[#26a17b]/40 focus:border-[#26a17b]/70' : 'border-[#1a2030] focus:border-[#00d4a0]/50'
+            }`}
+          />
+        </div>
+        {isUsdt && !isNaN(parsedAmount) && parsedAmount > 0 && (
+          <p className="text-[11px] text-[#26a17b] mt-1 flex items-center gap-1">
+            <span>≈</span>
+            <span className="font-mono font-semibold">{fmtBRL(parsedAmount * rate)}</span>
+            <span className="text-[#4a5568]">· câmbio {rate.toFixed(2)}</span>
+          </p>
+        )}
       </div>
 
       <div>
@@ -267,7 +298,7 @@ function AddExpenseForm({ monthId, onDone }: { monthId: string; onDone: () => vo
           className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-3 py-2 text-sm text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50" />
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-[#4a5568] block mb-1">Tipo</label>
           <select value={tipo} onChange={e => setTipo(e.target.value as DailyExpenseTipo)}
@@ -283,15 +314,6 @@ function AddExpenseForm({ monthId, onDone }: { monthId: string; onDone: () => vo
             className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-3 py-2 text-sm text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50">
             {(Object.keys(CATEGORY_LABELS) as DailyExpenseCategory[]).map(c => (
               <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-[#4a5568] block mb-1">Conta</label>
-          <select value={conta} onChange={e => setConta(e.target.value as DailyExpenseConta)}
-            className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-3 py-2 text-sm text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50">
-            {(Object.keys(CONTA_LABELS) as DailyExpenseConta[]).map(c => (
-              <option key={c} value={c}>{CONTA_LABELS[c]}</option>
             ))}
           </select>
         </div>
