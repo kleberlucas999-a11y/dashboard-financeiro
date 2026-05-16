@@ -8,6 +8,7 @@ import {
   ShoppingBag, MoreHorizontal, Wallet, CreditCard, Bitcoin,
   ChevronDown, ChevronUp, Upload, Search, X, TrendingDown,
   TrendingUp, BarChart3, Filter, CheckSquare, Square, CheckCheck,
+  Pencil, Check,
 } from 'lucide-react'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -351,8 +352,38 @@ function ExpenseRow({
   isSelected: boolean
   onToggleSelect: (id: string) => void
 }) {
-  const { deleteDailyExpense } = useFinanceStore()
+  const { deleteDailyExpense, updateDailyExpense } = useFinanceStore()
   const [confirming, setConfirming] = useState(false)
+  const [editing, setEditing]       = useState(false)
+
+  // Edit draft state
+  const [dDate,    setDDate]    = useState(expense.date)
+  const [dDesc,    setDDesc]    = useState(expense.description)
+  const [dAmount,  setDAmount]  = useState(String(expense.amount))
+  const [dCat,     setDCat]     = useState<DailyExpenseCategory>(expense.category)
+  const [dConta,   setDConta]   = useState<DailyExpenseConta>(expense.conta)
+  const [dTipo,    setDTipo]    = useState<DailyExpenseTipo>(expense.tipo ?? 'custo')
+  const [dNotes,   setDNotes]   = useState(expense.notes ?? '')
+
+  const openEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Reset draft to current values
+    setDDate(expense.date); setDDesc(expense.description); setDAmount(String(expense.amount))
+    setDCat(expense.category); setDConta(expense.conta); setDTipo(expense.tipo ?? 'custo')
+    setDNotes(expense.notes ?? '')
+    setEditing(true)
+  }
+
+  const saveEdit = () => {
+    const parsed = parseFloat(dAmount.replace(',', '.'))
+    if (!dDesc.trim() || isNaN(parsed) || parsed <= 0) return
+    updateDailyExpense(monthId, expense.id, {
+      date: dDate, description: dDesc.trim(), amount: parsed,
+      category: dCat, conta: dConta, tipo: dTipo,
+      notes: dNotes.trim() || undefined,
+    })
+    setEditing(false)
+  }
 
   const Icon      = CATEGORY_ICONS[expense.category]
   const ContaIcon = CONTA_ICONS[expense.conta]
@@ -361,79 +392,198 @@ function ExpenseRow({
   const tipo      = expense.tipo ?? 'custo'
   const tipoColor = TIPO_CONFIG[tipo].color
 
-  return (
-    <div
-      onClick={selectMode ? () => onToggleSelect(expense.id) : undefined}
-      className={`flex items-center gap-3 py-3 border-b border-[#0a0c11] last:border-0 group transition-colors ${
-        selectMode ? 'cursor-pointer' : ''
-      } ${isSelected ? 'bg-[#f06060]/05' : selectMode ? 'hover:bg-[#1a2030]/40' : ''}`}
-    >
-      {/* Checkbox (select mode) or Category icon (normal mode) */}
-      {selectMode ? (
-        <div className="w-8 h-8 flex items-center justify-center shrink-0">
-          {isSelected
-            ? <CheckSquare size={18} className="text-[#f06060]" />
-            : <Square size={18} className="text-[#4a5568]" />}
-        </div>
-      ) : (
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: `${color}18`, border: `1px solid ${color}33` }}>
-          <Icon size={14} style={{ color }} />
-        </div>
-      )}
+  const editIsUsdt     = dConta === 'usdt'
+  const editParsed     = parseFloat(dAmount.replace(',', '.'))
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#e8ecf4] truncate">{expense.description}</p>
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          <span className="text-[10px] text-[#4a5568] font-mono">{fmtDate(expense.date)}</span>
-          <span className="text-[10px] text-[#1a2030]">·</span>
-          <span className="text-[10px] flex items-center gap-0.5" style={{ color: tipoColor }}>
-            {TIPO_CONFIG[tipo].label}
-          </span>
-          <span className="text-[10px] text-[#1a2030]">·</span>
-          <span className="text-[10px] text-[#4a5568] flex items-center gap-0.5">
-            <ContaIcon size={10} />{CONTA_LABELS[expense.conta]}
-          </span>
-          {expense.notes && (
+  const inputCls = 'w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-2.5 py-1.5 text-xs text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50'
+  const selectCls = inputCls
+
+  return (
+    <div className={`border-b border-[#0a0c11] last:border-0 ${isSelected ? 'bg-[#f06060]/05' : ''}`}>
+      {/* ── Main row ── */}
+      <div
+        onClick={selectMode ? () => onToggleSelect(expense.id) : undefined}
+        className={`flex items-center gap-3 py-3 group transition-colors ${
+          selectMode ? 'cursor-pointer' : ''
+        } ${selectMode ? 'hover:bg-[#1a2030]/40' : ''}`}
+      >
+        {/* Checkbox (select mode) or Category icon (normal mode) */}
+        {selectMode ? (
+          <div className="w-8 h-8 flex items-center justify-center shrink-0">
+            {isSelected
+              ? <CheckSquare size={18} className="text-[#f06060]" />
+              : <Square size={18} className="text-[#4a5568]" />}
+          </div>
+        ) : (
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: `${color}18`, border: `1px solid ${color}33` }}>
+            <Icon size={14} style={{ color }} />
+          </div>
+        )}
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-[#e8ecf4] truncate">{expense.description}</p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <span className="text-[10px] text-[#4a5568] font-mono">{fmtDate(expense.date)}</span>
+            <span className="text-[10px] text-[#1a2030]">·</span>
+            <span className="text-[10px] flex items-center gap-0.5" style={{ color: tipoColor }}>
+              {TIPO_CONFIG[tipo].label}
+            </span>
+            <span className="text-[10px] text-[#1a2030]">·</span>
+            <span className="text-[10px] text-[#4a5568] flex items-center gap-0.5">
+              <ContaIcon size={10} />{CONTA_LABELS[expense.conta]}
+            </span>
+            {expense.notes && (
+              <>
+                <span className="text-[10px] text-[#1a2030]">·</span>
+                <span className="text-[10px] text-[#4a5568] truncate max-w-[120px]">{expense.notes}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Amount */}
+        <div className="text-right shrink-0">
+          {isUsdt ? (
             <>
-              <span className="text-[10px] text-[#1a2030]">·</span>
-              <span className="text-[10px] text-[#4a5568] truncate max-w-[120px]">{expense.notes}</span>
+              <p className="text-sm font-semibold text-[#26a17b]">{expense.amount.toFixed(2)} USDT</p>
+              <p className="text-[10px] text-[#4a5568]">≈ {fmtBRL(expense.amount * rate)}</p>
             </>
+          ) : (
+            <p className="text-sm font-semibold text-[#f06060]">{fmtBRL(expense.amount)}</p>
           )}
         </div>
-      </div>
 
-      {/* Amount */}
-      <div className="text-right shrink-0">
-        {isUsdt ? (
-          <>
-            <p className="text-sm font-semibold text-[#26a17b]">{expense.amount.toFixed(2)} USDT</p>
-            <p className="text-[10px] text-[#4a5568]">≈ {fmtBRL(expense.amount * rate)}</p>
-          </>
-        ) : (
-          <p className="text-sm font-semibold text-[#f06060]">{fmtBRL(expense.amount)}</p>
+        {/* Actions (hidden in select mode) */}
+        {!selectMode && (
+          <div className="shrink-0 flex items-center gap-1">
+            {/* Edit button */}
+            {!editing && !confirming && (
+              <button
+                onClick={openEdit}
+                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#4a5568] hover:text-[#6366f1] hover:bg-[#6366f1]/10 transition-all cursor-pointer"
+                title="Editar"
+              >
+                <Pencil size={13} />
+              </button>
+            )}
+
+            {/* Delete */}
+            {confirming ? (
+              <div className="flex items-center gap-1">
+                <button onClick={(e) => { e.stopPropagation(); deleteDailyExpense(monthId, expense.id) }}
+                  className="text-[10px] text-[#f06060] border border-[#f06060]/30 rounded px-1.5 py-0.5 hover:bg-[#f06060]/10 cursor-pointer">
+                  Sim
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
+                  className="text-[10px] text-[#4a5568] cursor-pointer hover:text-[#e8ecf4]">✕</button>
+              </div>
+            ) : (
+              !editing && (
+                <button onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
+                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#4a5568] hover:text-[#f06060] hover:bg-[#f06060]/10 transition-all cursor-pointer">
+                  <Trash2 size={13} />
+                </button>
+              )
+            )}
+          </div>
         )}
       </div>
 
-      {/* Delete (hidden in select mode) */}
-      {!selectMode && (
-        <div className="shrink-0 w-16 flex justify-end">
-          {confirming ? (
-            <div className="flex items-center gap-1">
-              <button onClick={(e) => { e.stopPropagation(); deleteDailyExpense(monthId, expense.id) }}
-                className="text-[10px] text-[#f06060] border border-[#f06060]/30 rounded px-1.5 py-0.5 hover:bg-[#f06060]/10 cursor-pointer">
-                Sim
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
-                className="text-[10px] text-[#4a5568] cursor-pointer hover:text-[#e8ecf4]">✕</button>
+      {/* ── Inline edit panel ── */}
+      {editing && (
+        <div className="mx-1 mb-3 p-3 rounded-xl bg-[#07090d] border border-[#6366f1]/30 space-y-3">
+          <p className="text-xs font-semibold text-[#6366f1]">Editar gasto</p>
+
+          {/* Row 1: Data + Conta */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] text-[#4a5568] block mb-1">Data</label>
+              <input type="date" value={dDate} onChange={e => setDDate(e.target.value)} className={inputCls} />
             </div>
-          ) : (
-            <button onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
-              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[#4a5568] hover:text-[#f06060] hover:bg-[#f06060]/10 transition-all cursor-pointer">
-              <Trash2 size={13} />
+            <div>
+              <label className="text-[10px] text-[#4a5568] block mb-1">Conta</label>
+              <select value={dConta} onChange={e => setDConta(e.target.value as DailyExpenseConta)} className={selectCls}>
+                {(Object.keys(CONTA_LABELS) as DailyExpenseConta[]).map(c => (
+                  <option key={c} value={c}>{CONTA_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Row 2: Valor */}
+          <div>
+            <label className="text-[10px] text-[#4a5568] block mb-1">
+              Valor{' '}
+              <span className={`font-semibold ${editIsUsdt ? 'text-[#26a17b]' : 'text-[#8898aa]'}`}>
+                {editIsUsdt ? '$ (USD)' : 'R$'}
+              </span>
+            </label>
+            <div className="relative">
+              <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-mono select-none ${editIsUsdt ? 'text-[#26a17b]' : 'text-[#4a5568]'}`}>
+                {editIsUsdt ? '$' : 'R$'}
+              </span>
+              <input
+                type="number" step="0.01" min="0"
+                value={dAmount} onChange={e => setDAmount(e.target.value)}
+                className={`w-full bg-[#07090d] border rounded-lg pl-7 pr-2.5 py-1.5 text-xs text-[#e8ecf4] focus:outline-none ${
+                  editIsUsdt ? 'border-[#26a17b]/40 focus:border-[#26a17b]/70' : 'border-[#1a2030] focus:border-[#00d4a0]/50'
+                }`}
+              />
+            </div>
+            {editIsUsdt && !isNaN(editParsed) && editParsed > 0 && (
+              <p className="text-[10px] text-[#26a17b] mt-1">≈ {fmtBRL(editParsed * rate)} · câmbio {rate.toFixed(2)}</p>
+            )}
+          </div>
+
+          {/* Row 3: Descrição */}
+          <div>
+            <label className="text-[10px] text-[#4a5568] block mb-1">Descrição</label>
+            <input type="text" value={dDesc} onChange={e => setDDesc(e.target.value)} className={inputCls} />
+          </div>
+
+          {/* Row 4: Tipo + Categoria */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] text-[#4a5568] block mb-1">Tipo</label>
+              <select value={dTipo} onChange={e => setDTipo(e.target.value as DailyExpenseTipo)} className={selectCls}>
+                <option value="custo">Despesa</option>
+                <option value="lazer">Lazer</option>
+                <option value="investimento">Investimento</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] text-[#4a5568] block mb-1">Categoria</label>
+              <select value={dCat} onChange={e => setDCat(e.target.value as DailyExpenseCategory)} className={selectCls}>
+                {(Object.keys(CATEGORY_LABELS) as DailyExpenseCategory[]).map(c => (
+                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Row 5: Observação */}
+          <div>
+            <label className="text-[10px] text-[#4a5568] block mb-1">Observação <span className="text-[#1a2030]">(opcional)</span></label>
+            <input type="text" value={dNotes} onChange={e => setDNotes(e.target.value)} placeholder="Nota rápida" className={inputCls} />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={saveEdit}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-[#6366f1]/10 hover:bg-[#6366f1]/20 border border-[#6366f1]/30 text-[#6366f1] text-xs font-semibold rounded-lg py-1.5 transition-all cursor-pointer"
+            >
+              <Check size={13} /> Salvar
             </button>
-          )}
+            <button
+              onClick={() => setEditing(false)}
+              className="px-4 border border-[#1a2030] text-[#4a5568] text-xs rounded-lg py-1.5 hover:text-[#e8ecf4] transition-all cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
     </div>
