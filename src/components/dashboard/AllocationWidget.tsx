@@ -17,80 +17,60 @@ import {
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { AllocationKey } from '@/types'
 
+// ─── Category config ──────────────────────────────────────────────────────────
+// 'needs'  → Despesas / Custos  (slider, % of totalIncome — pre-filled from bills)
+// 'wants'  → Lazer              (slider, % of totalIncome)
+// 'invest' → Investimentos      (slider, % of totalIncome)
+// All three sum to 100% of totalIncome.
+
 const ALLOC_LABELS: Record<AllocationKey, string> = {
-  needs: 'Necessidades',
-  wants: 'Desejos',
+  needs:  'Despesas / Custos',
+  wants:  'Lazer',
   invest: 'Investimentos',
 }
 const ALLOC_COLORS: Record<AllocationKey, string> = {
-  needs: '#3b82f6',
-  wants: '#8b5cf6',
+  needs:  '#f06060',
+  wants:  '#a78bfa',
   invest: '#00d4a0',
 }
-
-const BILLS_COLOR = '#f06060'
-const UNALLOC_COLOR = '#1a2030'
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-[#0d1117] border border-[#243048] rounded-xl p-3 text-xs shadow-xl">
       <p className="font-medium text-[#e8ecf4]">{payload[0].name}</p>
-      <p className="font-mono text-[#00d4a0] mt-0.5">{formatBRL(payload[0].value)}</p>
+      <p className="font-mono mt-0.5" style={{ color: payload[0].payload.color }}>{formatBRL(payload[0].value)}</p>
     </div>
   )
 }
 
-const BUDGET_METHOD_LABELS: Record<string, string> = {
-  '50-30-20': '50-30-20',
-  '70-20-10': '70-20-10',
-  '60-20-20': '60-20-20',
-  'personalizado': 'Personalizado',
-}
-
 // ─── Stacked income bar ───────────────────────────────────────────────────────
-function IncomeBar({
-  totalIncome, billsTotal, needsBudget, wantsBudget, investBudget,
-}: {
-  totalIncome: number
-  billsTotal: number
-  needsBudget: number
-  wantsBudget: number
-  investBudget: number
+function IncomeBar({ totalIncome, needsBudget, wantsBudget, investBudget }: {
+  totalIncome: number; needsBudget: number; wantsBudget: number; investBudget: number
 }) {
   if (totalIncome <= 0) return null
   const pct = (v: number) => Math.max(0, Math.min(100, (v / totalIncome) * 100))
-
   const segments = [
-    { label: 'Contas', value: billsTotal, color: BILLS_COLOR },
-    { label: 'Necessidades', value: needsBudget, color: ALLOC_COLORS.needs },
-    { label: 'Desejos', value: wantsBudget, color: ALLOC_COLORS.wants },
+    { label: 'Despesas',      value: needsBudget,  color: ALLOC_COLORS.needs },
+    { label: 'Lazer',         value: wantsBudget,  color: ALLOC_COLORS.wants },
     { label: 'Investimentos', value: investBudget, color: ALLOC_COLORS.invest },
   ]
-  const allocated = billsTotal + needsBudget + wantsBudget + investBudget
+  const allocated   = needsBudget + wantsBudget + investBudget
   const unallocated = Math.max(0, totalIncome - allocated)
 
   return (
     <div className="space-y-3">
-      {/* Bar */}
       <div className="flex h-4 rounded-full overflow-hidden gap-0.5">
         {segments.map((s) => (
-          <div
-            key={s.label}
-            className="h-full transition-all"
+          <div key={s.label} className="h-full transition-all"
             style={{ width: `${pct(s.value)}%`, background: s.color, opacity: 0.85 }}
-            title={`${s.label}: ${formatBRL(s.value)} (${pct(s.value).toFixed(1)}%)`}
-          />
+            title={`${s.label}: ${formatBRL(s.value)} (${pct(s.value).toFixed(1)}%)`} />
         ))}
         {unallocated > 0 && (
-          <div
-            className="h-full rounded-r-full"
-            style={{ width: `${pct(unallocated)}%`, background: UNALLOC_COLOR }}
-            title={`Não alocado: ${formatBRL(unallocated)}`}
-          />
+          <div className="h-full flex-1 rounded-r-full bg-[#1a2030]"
+            title={`Não alocado: ${formatBRL(unallocated)}`} />
         )}
       </div>
-      {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
         {segments.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5">
@@ -102,7 +82,7 @@ function IncomeBar({
         ))}
         {unallocated > 0 && (
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: UNALLOC_COLOR }} />
+            <div className="w-2 h-2 rounded-full bg-[#1a2030] shrink-0" />
             <span className="text-[11px] text-[#4a5568]">Não alocado</span>
             <span className="text-[11px] font-mono text-[#4a5568]">{formatBRL(unallocated)}</span>
           </div>
@@ -112,22 +92,19 @@ function IncomeBar({
   )
 }
 
-// ─── Bills status row ─────────────────────────────────────────────────────────
+// ─── Bills status ─────────────────────────────────────────────────────────────
 function BillsStatus({ month }: { month: any }) {
-  const allBills = month.bills.filter((b: any) => b.status !== 'quitado')
-  const totalBills = allBills.reduce((s: number, b: any) => s + b.amount, 0)
-  const paidBills  = allBills.filter((b: any) => b.status === 'pago').reduce((s: number, b: any) => s + b.amount, 0)
+  const allBills     = month.bills.filter((b: any) => b.status !== 'quitado')
+  const totalBills   = allBills.reduce((s: number, b: any) => s + b.amount, 0)
+  const paidBills    = allBills.filter((b: any) => b.status === 'pago').reduce((s: number, b: any) => s + b.amount, 0)
   const pendingBills = totalBills - paidBills
-
   const overduePending = (month.overdueBills || [])
     .filter((b: any) => b.status !== 'pago' && b.status !== 'quitado')
     .reduce((s: number, b: any) => s + b.amount, 0)
-
   const paidPct = totalBills > 0 ? (paidBills / totalBills) * 100 : 0
 
   return (
     <div className="space-y-3">
-      {/* Bills row */}
       <div className="flex items-center gap-3 flex-wrap">
         <Receipt size={14} className="text-[#f06060] shrink-0" />
         <div className="flex-1 min-w-0">
@@ -142,8 +119,6 @@ function BillsStatus({ month }: { month: any }) {
           <Progress value={paidBills} max={totalBills || 1} color="#00d4a0" size="sm" />
         </div>
       </div>
-
-      {/* Pending + overdue pills */}
       <div className="flex items-center gap-2 flex-wrap">
         {pendingBills > 0 && (
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f5a020]/10 border border-[#f5a020]/25">
@@ -174,28 +149,23 @@ function BillsStatus({ month }: { month: any }) {
 export function AllocationWidget() {
   const {
     currentMonthId, getCurrentMonth, updateAllocationPercents,
-    updateAllocationSpent, moveAllocation, setAllocationActive, userProfile,
+    updateAllocationSpent, moveAllocation, setAllocationActive,
   } = useFinanceStore()
   const month = getCurrentMonth()
   const [showMoveDialog, setShowMoveDialog] = useState(false)
-  const [moveForm, setMoveForm] = useState({ from: 'needs' as AllocationKey, to: 'wants' as AllocationKey, amount: '', reason: '' })
+  const [moveForm, setMoveForm] = useState({
+    from: 'needs' as AllocationKey, to: 'wants' as AllocationKey, amount: '', reason: '',
+  })
 
   if (!month) return null
 
-  const totalIncome  = calcTotalIncome(month)
-  const freeBalance  = Math.max(0, calcFreeBalance(month))
-  const isActive     = !!month.allocationActive
-  const budgetMethod = userProfile?.budgetMethod || '50-30-20'
+  const totalIncome = calcTotalIncome(month)
+  const freeBalance = Math.max(0, calcFreeBalance(month))
+  const isActive    = !!month.allocationActive
 
   const alloc = month.allocation
-  const needsBudget  = freeBalance * (alloc.needsPercent / 100)
-  const wantsBudget  = freeBalance * (alloc.wantsPercent / 100)
-  const investBudget = freeBalance * (alloc.investPercent / 100)
 
-  const budgets: Record<AllocationKey, number> = { needs: needsBudget, wants: wantsBudget, invest: investBudget }
-  const spent:   Record<AllocationKey, number> = { needs: alloc.needsSpent, wants: alloc.wantsSpent, invest: alloc.investSpent }
-
-  // Bills total (active, non-quitado)
+  // Bills total (reference for Despesas pre-fill)
   const billsTotal = month.bills
     .filter(b => b.status !== 'quitado')
     .reduce((s, b) => s + b.amount, 0)
@@ -204,21 +174,39 @@ export function AllocationWidget() {
     .reduce((s, b) => s + b.amount, 0)
   const totalCosts = billsTotal + overduePending
 
-  const pieData = [
-    { name: 'Necessidades', value: needsBudget, key: 'needs' },
-    { name: 'Desejos', value: wantsBudget, key: 'wants' },
-    { name: 'Investimentos', value: investBudget, key: 'invest' },
-  ]
+  // Budgets = % of totalIncome (all 3 sum to 100%)
+  const needsBudget  = totalIncome * (alloc.needsPercent  / 100)
+  const wantsBudget  = totalIncome * (alloc.wantsPercent  / 100)
+  const investBudget = totalIncome * (alloc.investPercent / 100)
 
-  const total = alloc.needsPercent + alloc.wantsPercent + alloc.investPercent
-  const isValid = total === 100
-
-  const handleSliderChange = (key: AllocationKey, value: number) => {
-    const newNeeds  = key === 'needs'  ? value : alloc.needsPercent
-    const newWants  = key === 'wants'  ? value : alloc.wantsPercent
-    const newInvest = key === 'invest' ? value : alloc.investPercent
-    updateAllocationPercents(currentMonthId, newNeeds, newWants, newInvest)
+  const budgets: Record<AllocationKey, number> = {
+    needs: needsBudget, wants: wantsBudget, invest: investBudget,
   }
+  const spent: Record<AllocationKey, number> = {
+    needs: alloc.needsSpent, wants: alloc.wantsSpent, invest: alloc.investSpent,
+  }
+
+  const sliderTotal = alloc.needsPercent + alloc.wantsPercent + alloc.investPercent
+  const isValid = sliderTotal === 100
+
+  // On activation: pre-fill Despesas with bills %, split remainder between Lazer and Invest
+  const handleActivate = () => {
+    if (totalIncome > 0) {
+      const billsPct   = Math.min(100, Math.round((totalCosts / totalIncome) * 100))
+      const remaining  = 100 - billsPct
+      // Default: remaining goes 40% lazer / 60% invest (of the remaining portion)
+      const lazerPct  = Math.round(remaining * 0.4)
+      const investPct = remaining - lazerPct
+      updateAllocationPercents(currentMonthId, billsPct, lazerPct, investPct)
+    }
+    setAllocationActive(currentMonthId, true)
+  }
+
+  const pieData = [
+    { name: 'Despesas / Custos', value: needsBudget,  color: ALLOC_COLORS.needs,  key: 'needs' },
+    { name: 'Lazer',             value: wantsBudget,  color: ALLOC_COLORS.wants,  key: 'wants' },
+    { name: 'Investimentos',     value: investBudget, color: ALLOC_COLORS.invest, key: 'invest' },
+  ]
 
   const handleMove = () => {
     const amt = parseFloat(moveForm.amount)
@@ -228,20 +216,21 @@ export function AllocationWidget() {
     setShowMoveDialog(false)
   }
 
+  const pctOfTotal = (v: number) => totalIncome > 0 ? ((v / totalIncome) * 100).toFixed(0) : '0'
+
   return (
     <div className="space-y-4 animate-fade-in">
 
       {/* ── 1. Panorama da Renda ─────────────────────────────────────── */}
       <Card>
         <CardContent className="p-5 space-y-4">
-          {/* Header row */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <p className="text-xs text-[#8898aa] uppercase tracking-wider mb-1">Renda Total do Mês</p>
               <p className="text-3xl font-mono font-bold text-[#e8ecf4]">{formatBRL(totalIncome)}</p>
               <p className="text-xs text-[#4a5568] mt-1">
                 {totalIncome > 0
-                  ? `Contas: ${((totalCosts / totalIncome) * 100).toFixed(0)}% · Saldo livre: ${((freeBalance / totalIncome) * 100).toFixed(0)}%`
+                  ? `Despesas: ${pctOfTotal(totalCosts)}% · Saldo livre: ${pctOfTotal(freeBalance)}%`
                   : 'Configure sua renda em Visão Geral'}
               </p>
             </div>
@@ -251,15 +240,12 @@ export function AllocationWidget() {
               <p className="text-[10px] text-[#4a5568] mt-0.5">após todas as contas</p>
             </div>
           </div>
-
-          {/* Stacked bar */}
-          {totalIncome > 0 && (
+          {totalIncome > 0 && isActive && (
             <IncomeBar
               totalIncome={totalIncome}
-              billsTotal={totalCosts}
-              needsBudget={isActive ? needsBudget : 0}
-              wantsBudget={isActive ? wantsBudget : 0}
-              investBudget={isActive ? investBudget : 0}
+              needsBudget={needsBudget}
+              wantsBudget={wantsBudget}
+              investBudget={investBudget}
             />
           )}
         </CardContent>
@@ -269,8 +255,7 @@ export function AllocationWidget() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
-            <Receipt size={15} className="text-[#f06060]" />
-            Status das Contas
+            <Receipt size={15} className="text-[#f06060]" /> Status das Contas
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
@@ -278,7 +263,7 @@ export function AllocationWidget() {
         </CardContent>
       </Card>
 
-      {/* ── 3. Allocation gate / full UI ─────────────────────────────── */}
+      {/* ── 3. Gate ou UI completa ───────────────────────────────────── */}
       {!isActive ? (
         <Card className="border-dashed border-[#243048]">
           <CardContent className="p-6 text-center space-y-4">
@@ -292,14 +277,11 @@ export function AllocationWidget() {
                 <span className="font-mono font-semibold text-[#00d4a0]">{formatBRL(freeBalance)}</span>
               </p>
               <p className="text-xs text-[#4a5568] mt-1">
-                Ative quando estiver pronto para distribuir o saldo entre as categorias do método {BUDGET_METHOD_LABELS[budgetMethod]}.
+                Ao ativar, Despesas/Custos será pré-preenchida com a % atual das suas contas.
+                Você pode ajustar manualmente os 3 sliders.
               </p>
             </div>
-            <Button
-              onClick={() => setAllocationActive(currentMonthId, true)}
-              disabled={freeBalance <= 0}
-              className="mx-auto"
-            >
+            <Button onClick={handleActivate} disabled={freeBalance <= 0} className="mx-auto">
               <PlayCircle size={15} /> Ativar Alocação do Mês
             </Button>
             {freeBalance <= 0 && (
@@ -313,7 +295,9 @@ export function AllocationWidget() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {(['needs', 'wants', 'invest'] as AllocationKey[]).map((key) => {
               const over = spent[key] > budgets[key]
-              const pct = totalIncome > 0 ? ((budgets[key] / totalIncome) * 100).toFixed(0) : '0'
+              // hint for Despesas: show if budget drifted far from actual bills
+              const isDespesas = key === 'needs'
+              const drift = isDespesas ? budgets[key] - totalCosts : null
               return (
                 <Card key={key} className={`hover:border-[#243048] transition-colors ${over ? 'border-[#f06060]/30' : ''}`}>
                   <CardContent className="p-5">
@@ -322,11 +306,18 @@ export function AllocationWidget() {
                         <p className="text-xs text-[#8898aa] uppercase tracking-wider mb-1">{ALLOC_LABELS[key]}</p>
                         <p className="text-xl font-mono font-bold" style={{ color: ALLOC_COLORS[key] }}>
                           {alloc[`${key}Percent` as 'needsPercent' | 'wantsPercent' | 'investPercent']}%
-                          <span className="text-xs font-normal text-[#4a5568] ml-1">da renda livre</span>
                         </p>
                         <p className="text-sm font-mono text-[#e8ecf4] mt-1">{formatBRL(budgets[key])}</p>
-                        {totalIncome > 0 && (
-                          <p className="text-[10px] text-[#4a5568] mt-0.5">≈ {pct}% da renda total</p>
+                        {/* Hint: real bills vs allocated for Despesas */}
+                        {isDespesas && drift !== null && Math.abs(drift) > 10 && (
+                          <p className="text-[10px] mt-1" style={{ color: drift < 0 ? '#f06060' : '#00d4a0' }}>
+                            {drift < 0
+                              ? `⚠ contas: ${formatBRL(totalCosts)} (+${formatBRL(-drift)} descoberto)`
+                              : `Contas: ${formatBRL(totalCosts)} · sobra ${formatBRL(drift)}`}
+                          </p>
+                        )}
+                        {isDespesas && drift !== null && Math.abs(drift) <= 10 && (
+                          <p className="text-[10px] text-[#4a5568] mt-1">Alinhado com as contas</p>
                         )}
                       </div>
                       {over && <AlertTriangle size={16} className="text-[#f06060] mt-1" />}
@@ -338,55 +329,75 @@ export function AllocationWidget() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Sliders */}
+            {/* Sliders — all 3, manual */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between flex-wrap gap-2">
+                  <CardTitle>Distribuição (% da renda total)</CardTitle>
                   <div className="flex items-center gap-2">
-                    <CardTitle>Distribuição</CardTitle>
-                    <Badge variant="muted">{BUDGET_METHOD_LABELS[budgetMethod]}</Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!isValid && <Badge variant="red">soma: {total}%</Badge>}
+                    {!isValid && <Badge variant="red">soma: {sliderTotal}%</Badge>}
                     {isValid  && <Badge variant="green">100%</Badge>}
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-5 pt-4">
-                {(['needs', 'wants', 'invest'] as AllocationKey[]).map((key) => (
-                  <Slider
-                    key={key}
-                    label={ALLOC_LABELS[key]}
-                    displayValue={`${alloc[`${key}Percent` as keyof typeof alloc]}% = ${formatBRL(budgets[key])}`}
-                    min={0} max={100} step={5}
-                    value={alloc[`${key}Percent` as 'needsPercent' | 'wantsPercent' | 'investPercent'] as number}
-                    color={ALLOC_COLORS[key]}
-                    onChange={(e) => handleSliderChange(key, parseInt(e.target.value))}
-                  />
-                ))}
+                {/* Despesas reference pill */}
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f06060]/08 border border-[#f06060]/20 text-xs">
+                  <Receipt size={11} className="text-[#f06060] shrink-0" />
+                  <span className="text-[#8898aa]">Suas contas totalizam</span>
+                  <span className="font-mono font-semibold text-[#f06060]">{formatBRL(totalCosts)}</span>
+                  <span className="text-[#4a5568]">({pctOfTotal(totalCosts)}% da renda)</span>
+                </div>
+
+                {(['needs', 'wants', 'invest'] as AllocationKey[]).map((key) => {
+                  const pctKey = `${key}Percent` as 'needsPercent' | 'wantsPercent' | 'investPercent'
+                  const currentPct = alloc[pctKey] as number
+                  return (
+                    <Slider
+                      key={key}
+                      label={ALLOC_LABELS[key]}
+                      displayValue={`${currentPct}% = ${formatBRL(budgets[key])}`}
+                      min={0} max={100} step={5}
+                      value={currentPct}
+                      color={ALLOC_COLORS[key]}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value)
+                        const newNeeds  = key === 'needs'  ? val : alloc.needsPercent
+                        const newWants  = key === 'wants'  ? val : alloc.wantsPercent
+                        const newInvest = key === 'invest' ? val : alloc.investPercent
+                        updateAllocationPercents(currentMonthId, newNeeds, newWants, newInvest)
+                      }}
+                    />
+                  )
+                })}
+                {!isValid && (
+                  <p className="text-xs text-[#f5a020] text-center">
+                    Os percentuais somam {sliderTotal}% — ajuste até totalizar 100%.
+                  </p>
+                )}
               </CardContent>
             </Card>
 
             {/* Pie chart */}
             <Card>
-              <CardHeader><CardTitle>Gráfico de Alocação</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Distribuição da Renda</CardTitle></CardHeader>
               <CardContent className="pt-2">
                 <div className="h-52">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
                         {pieData.map((entry) => (
-                          <Cell key={entry.key} fill={ALLOC_COLORS[entry.key as AllocationKey]} />
+                          <Cell key={entry.key} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="flex justify-center gap-4 mt-2">
+                <div className="flex justify-center gap-4 mt-2 flex-wrap">
                   {pieData.map((item) => (
                     <div key={item.key} className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ALLOC_COLORS[item.key as AllocationKey] }} />
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
                       <span className="text-xs text-[#8898aa]">{item.name}</span>
                     </div>
                   ))}
@@ -395,7 +406,7 @@ export function AllocationWidget() {
             </Card>
           </div>
 
-          {/* Spent tracking */}
+          {/* ── Spent tracking ─────────────────────────────────────── */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
@@ -407,7 +418,6 @@ export function AllocationWidget() {
                   <button
                     onClick={() => setAllocationActive(currentMonthId, false)}
                     className="flex items-center gap-1.5 text-xs text-[#4a5568] hover:text-[#f5a020] border border-[#1a2030] hover:border-[#f5a020]/30 px-2.5 py-1.5 rounded-lg cursor-pointer transition-all"
-                    title="Desativar alocação deste mês"
                   >
                     <PauseCircle size={13} /> Desativar
                   </button>
@@ -416,12 +426,10 @@ export function AllocationWidget() {
             </CardHeader>
             <CardContent className="space-y-5 pt-4">
               {(['needs', 'wants', 'invest'] as AllocationKey[]).map((key) => {
-                const budget     = budgets[key]
-                const spentVal   = spent[key]
-                const remaining  = budget - spentVal
-                const over       = spentVal > budget
-                const pct        = budget > 0 ? (spentVal / budget) * 100 : 0
-
+                const budget    = budgets[key]
+                const spentVal  = spent[key]
+                const remaining = budget - spentVal
+                const over      = spentVal > budget
                 return (
                   <div key={key} className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -435,11 +443,8 @@ export function AllocationWidget() {
                     <Progress value={spentVal} max={budget} color={over ? '#f06060' : ALLOC_COLORS[key]} size="md" />
                     <div className="flex items-center gap-3">
                       <Input
-                        type="number"
-                        prefix="R$"
-                        value={spentVal || ''}
-                        placeholder="0,00"
-                        className="text-sm"
+                        type="number" prefix="R$"
+                        value={spentVal || ''} placeholder="0,00" className="text-sm"
                         onChange={(e) => updateAllocationSpent(currentMonthId, key, parseFloat(e.target.value) || 0)}
                       />
                       <span className="text-xs text-[#4a5568] whitespace-nowrap">
@@ -476,7 +481,7 @@ export function AllocationWidget() {
         </>
       )}
 
-      {/* Move dialog */}
+      {/* Move dialog — between any of the 3 categories */}
       <Dialog open={showMoveDialog} onClose={() => setShowMoveDialog(false)} title="Mover Verba" size="sm">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -495,7 +500,8 @@ export function AllocationWidget() {
             onChange={(e) => setMoveForm({ ...moveForm, reason: e.target.value })} placeholder="Ex: emergência, viagem..." />
           <div className="flex gap-3 pt-2">
             <Button variant="outline" className="flex-1" onClick={() => setShowMoveDialog(false)}>Cancelar</Button>
-            <Button className="flex-1" onClick={handleMove} disabled={!moveForm.amount || !moveForm.reason || moveForm.from === moveForm.to}>
+            <Button className="flex-1" onClick={handleMove}
+              disabled={!moveForm.amount || !moveForm.reason || moveForm.from === moveForm.to}>
               Mover
             </Button>
           </div>
