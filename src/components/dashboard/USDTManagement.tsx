@@ -41,11 +41,8 @@ export function USDTManagement() {
   // Core amounts
   const netAmount = calcUSDTNet(month)   // monthlyAmount (or gross - discount if set)
 
-  const usdtTithe = netAmount * 0.1
-  const usdtAvailable = netAmount - usdtTithe
-
   const minToConvert = calcMinUSDTToConvert(month)
-  const apyUSDT = Math.max(0, usdtAvailable - minToConvert)
+  const apyUSDT = Math.max(0, netAmount - minToConvert)
 
   const totalBRL = calcUSDTInBRL(netAmount, rate)
   const convertBRL = calcUSDTInBRL(netAmount * (settings.convertPercent / 100), rate)
@@ -84,7 +81,6 @@ export function USDTManagement() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'USDT Líquido', value: formatUSDT(netAmount), sub: formatBRL(totalBRL), color: '#26a17b' },
-          { label: 'Dízimo USDT (10%)', value: formatUSDT(usdtTithe), sub: formatBRL(usdtTithe * rate), color: '#f5a020' },
           { label: 'Mín. a Converter', value: formatUSDT(minToConvert), sub: formatBRL(minToConvert * rate), color: '#f06060' },
           { label: 'Fica em APY', value: formatUSDT(apyUSDT), sub: `${settings.apyPercent}% a.a. → +${formatUSDT(monthlyReturn)}/mês`, color: '#6366f1' },
         ].map((item) => (

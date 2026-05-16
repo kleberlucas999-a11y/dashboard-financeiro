@@ -1,7 +1,7 @@
 'use client'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { formatBRL, formatUSDT, calcTotalIncome, calcTithe, getMonthLabel } from '@/lib/utils'
+import { formatBRL, formatUSDT, calcTotalIncome, getMonthLabel } from '@/lib/utils'
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Legend
@@ -44,26 +44,23 @@ export function MonthlyHistory() {
 
   const chartData = sortedMonths.map((m) => {
     const totalIncome = calcTotalIncome(m)
-    const tithe = calcTithe(totalIncome)
     const totalBills = m.bills.filter(b => b.status !== 'quitado').reduce((s, b) => s + b.amount, 0)
-    const freeBalance = Math.max(0, totalIncome - tithe - totalBills)
+    const freeBalance = Math.max(0, totalIncome - totalBills)
     const usdtInAPY = m.usdtSettings.monthlyAmount * (m.usdtSettings.keepInApyPercent / 100)
 
     return {
       mes: getMonthLabel(m.year, m.month).split(' ')[0],
       'Renda Total': Math.round(totalIncome),
       'Saldo Livre': Math.round(freeBalance),
-      'Dízimo': Math.round(tithe),
       'Total Contas': Math.round(totalBills),
       'USDT APY': Math.round(usdtInAPY),
     }
   })
 
-  const totals = sortedMonths.map((m, i) => ({
+  const totals = sortedMonths.map((m) => ({
     month: getMonthLabel(m.year, m.month),
     income: calcTotalIncome(m),
     bills: m.bills.filter(b => b.status !== 'quitado').reduce((s, b) => s + b.amount, 0),
-    tithe: calcTithe(calcTotalIncome(m)),
     usdtInAPY: m.usdtSettings.monthlyAmount * (m.usdtSettings.keepInApyPercent / 100),
     conversions: m.conversions.length,
   }))
@@ -101,7 +98,7 @@ export function MonthlyHistory() {
 
       {/* Bar chart - bills and tithe */}
       <Card>
-        <CardHeader><CardTitle>Contas × Dízimo × Saldo Livre</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Contas × Saldo Livre</CardTitle></CardHeader>
         <CardContent className="pt-4">
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
@@ -112,7 +109,6 @@ export function MonthlyHistory() {
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: '11px', color: '#8898aa' }} />
                 <Bar dataKey="Total Contas" fill="#f06060" radius={[4, 4, 0, 0]} opacity={0.8} />
-                <Bar dataKey="Dízimo" fill="#f5a020" radius={[4, 4, 0, 0]} opacity={0.8} />
                 <Bar dataKey="Saldo Livre" fill="#00d4a0" radius={[4, 4, 0, 0]} opacity={0.8} />
               </BarChart>
             </ResponsiveContainer>
@@ -128,7 +124,7 @@ export function MonthlyHistory() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#1a2030]">
-                  {['Mês', 'Renda Total', 'Contas', 'Dízimo', 'USDT APY', 'Conversões'].map((h) => (
+                  {['Mês', 'Renda Total', 'Contas', 'USDT APY', 'Conversões'].map((h) => (
                     <th key={h} className="text-left text-xs text-[#4a5568] uppercase tracking-wider py-2 pr-4">{h}</th>
                   ))}
                 </tr>
@@ -139,7 +135,6 @@ export function MonthlyHistory() {
                     <td className="py-3 pr-4 text-[#8898aa] capitalize whitespace-nowrap">{row.month}</td>
                     <td className="py-3 pr-4 font-mono text-[#00d4a0]">{formatBRL(row.income)}</td>
                     <td className="py-3 pr-4 font-mono text-[#f06060]">{formatBRL(row.bills)}</td>
-                    <td className="py-3 pr-4 font-mono text-[#f5a020]">{formatBRL(row.tithe)}</td>
                     <td className="py-3 pr-4 font-mono text-[#6366f1]">{formatUSDT(row.usdtInAPY)}</td>
                     <td className="py-3 pr-4 font-mono text-[#8898aa]">{row.conversions}</td>
                   </tr>

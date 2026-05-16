@@ -2,7 +2,7 @@
 import { useFinanceStore } from '@/store/useFinanceStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { formatBRL, calcTotalIncome, calcTotalTithe, calcUSDTInBRL, calcFreeBalance } from '@/lib/utils'
+import { formatBRL, calcTotalIncome, calcUSDTInBRL, calcFreeBalance } from '@/lib/utils'
 import { AlertTriangle, CheckCircle2, TrendingUp, AlertCircle, Info, Bell } from 'lucide-react'
 
 type AlertLevel = 'info' | 'warning' | 'critical' | 'success'
@@ -29,7 +29,6 @@ export function AlertsWidget() {
   if (!month) return null
 
   const totalIncome = calcTotalIncome(month)
-  const tithe = calcTotalTithe(month)
   const totalBills = month.bills.filter(b => b.status !== 'quitado').reduce((s, b) => s + b.amount, 0)
   const freeBalance = calcFreeBalance(month)
   const rate = month.exchangeRate || exchangeRate.rate
@@ -128,18 +127,6 @@ export function AlertsWidget() {
         description: soonBills.map(b => `${b.name} (dia ${b.dueDay} — ${formatBRL(b.amount)})`).join(', '),
       })
     }
-  }
-
-  // Dízimo não alocado
-  const dizimoAccount = month.bankAccounts.find(a => a.type === 'dizimo')
-  const dizimoBalance = dizimoAccount?.transactions.reduce((s, t) => t.type === 'entrada' ? s + t.amount : s - t.amount, 0) || 0
-  if (dizimoBalance < tithe * 0.5) {
-    alerts.push({
-      id: 'dizimo-low',
-      level: 'info',
-      title: 'Dízimo pendente de alocação',
-      description: `${formatBRL(tithe - dizimoBalance)} ainda não foi transferido para a conta de dízimo.`,
-    })
   }
 
   // All bills paid

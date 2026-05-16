@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog } from '@/components/ui/dialog'
 import { formatBRL, formatUSDT } from '@/lib/utils'
 import { BankAccount } from '@/types'
-import { Plus, Trash2, Wallet, TrendingUp, ArrowUpRight, ArrowDownLeft, Pencil, Check, X, Banknote, RotateCcw, CreditCard, AlertTriangle, Wrench } from 'lucide-react'
+import { Plus, Trash2, Wallet, TrendingUp, ArrowUpRight, Pencil, Check, X, Banknote, RotateCcw, CreditCard, AlertTriangle, Wrench } from 'lucide-react'
 
 /** Raw balance in the account's native currency (USD for usdt, BRL for others) */
 function calcAccountBalance(acc: BankAccount): number {
@@ -35,14 +35,12 @@ const ACCOUNT_ICONS: Record<string, React.ElementType> = {
   operacional: Wallet,
   usdt: TrendingUp,
   investimento: ArrowUpRight,
-  dizimo: ArrowDownLeft,
 }
 
 const ACCOUNT_LABELS: Record<string, string> = {
   operacional: 'Conta corrente',
   usdt: 'USDT / APY',
   investimento: 'Investimento BR',
-  dizimo: 'Dízimo',
 }
 
 // ─── Inline editable initial balance ────────────────────────────────────────
@@ -105,8 +103,8 @@ function SalaryAccountPicker({
   onConfirm: (accountId: string) => void
   onClose: () => void
 }) {
-  // Exclude dizimo (it receives tithe automatically) and usdt (not BRL)
-  const eligible = accounts.filter((a) => a.type !== 'dizimo' && a.type !== 'usdt')
+  // Exclude usdt (not BRL)
+  const eligible = accounts.filter((a) => a.type !== 'usdt')
   const [selectedId, setSelectedId] = useState(eligible[0]?.id ?? '')
 
   return (
@@ -116,7 +114,7 @@ function SalaryAccountPicker({
           <span className="text-sm text-[#e8ecf4] font-medium">Salário — 5º dia útil</span>
           <span className="text-sm font-mono font-bold text-[#00d4a0] shrink-0 ml-3">{formatBRL(fixedIncome)}</span>
         </div>
-        <p className="text-xs text-[#4a5568]">Dízimo (10%) será separado automaticamente para a conta Dízimo.</p>
+        <p className="text-xs text-[#4a5568]">Selecione a conta que vai receber o salário.</p>
 
         <div className="space-y-2">
           {eligible.map((acc) => {
@@ -184,8 +182,6 @@ export function BankAccounts() {
         acc.transactions.some((tx) => tx.linkedBillId === '__salary__' && tx.type === 'entrada')
       )
     : null
-  const tithe = Math.round(month.fixedIncome * 0.1 * 100) / 100
-  const salaryNet = month.fixedIncome - tithe // valor que fica na conta para alocar
   // Patrimônio em BRL: usdt accounts are multiplied by exchange rate
   const totalPatrimonio = month.bankAccounts.reduce((s, acc) => s + calcAccountBalanceBRL(acc, rate), 0)
   const toGlobalBRL = (acc: BankAccount, amount: number) => acc.type === 'usdt' ? amount * rate : amount
@@ -294,9 +290,7 @@ export function BankAccounts() {
                     Salário — {formatBRL(month.fixedIncome)} <span className="text-xs text-[#4a5568] font-normal">(5º dia útil)</span>
                   </p>
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-[#4a5568]">
-                    <span className="text-[#f5a020]">Dízimo {formatBRL(tithe)}</span>
-                    <span>·</span>
-                    <span className="text-[#00d4a0]">Disponível {formatBRL(salaryNet)} para alocar</span>
+                    <span className="text-[#00d4a0]">Disponível {formatBRL(month.fixedIncome)} para alocar</span>
                   </div>
                 </div>
               </div>
@@ -329,14 +323,10 @@ export function BankAccounts() {
             </div>
 
             {salaryRegistered && (
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="mt-3 grid grid-cols-1 gap-2 text-xs">
                 <div className="px-3 py-2 rounded-lg bg-[#00d4a0]/08 border border-[#00d4a0]/20 text-center">
                   <p className="text-[#4a5568]">{salaryAccount?.name ?? 'Conta'} recebeu</p>
                   <p className="font-mono font-bold text-[#00d4a0]">+{formatBRL(month.fixedIncome)}</p>
-                </div>
-                <div className="px-3 py-2 rounded-lg bg-[#f5a020]/08 border border-[#f5a020]/20 text-center">
-                  <p className="text-[#4a5568]">Dízimo separado</p>
-                  <p className="font-mono font-bold text-[#f5a020]">{formatBRL(tithe)}</p>
                 </div>
               </div>
             )}

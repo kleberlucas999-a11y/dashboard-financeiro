@@ -1,6 +1,6 @@
 export type BillCategory = 'moradia' | 'saude' | 'servico' | 'transporte' | 'cartao' | 'divida' | 'variavel'
 export type BillStatus = 'pendente' | 'pago' | 'quitado'
-export type AccountType = 'operacional' | 'usdt' | 'investimento' | 'dizimo'
+export type AccountType = 'operacional' | 'usdt' | 'investimento'
 export type AllocationKey = 'needs' | 'wants' | 'invest'
 
 // ─── User profile types ──────────────────────────────────────────────────────
@@ -39,7 +39,6 @@ export interface UserProfile {
   customInvest?: number
   experience: ExperienceLevel
   advisorTone: AdvisorTone
-  hasTithe: boolean
   hasEmergencyFund: boolean
   emergencyFundMonths: number
   estimatedTotalDebt: number

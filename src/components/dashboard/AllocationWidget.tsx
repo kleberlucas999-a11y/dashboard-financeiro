@@ -9,7 +9,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { formatBRL, calcTotalIncome, calcTotalTithe, calcFreeBalance } from '@/lib/utils'
+import { formatBRL, calcTotalIncome, calcFreeBalance } from '@/lib/utils'
 import { ArrowRight, Plus, History, AlertTriangle } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { AllocationKey } from '@/types'
@@ -105,7 +105,7 @@ export function AllocationWidget() {
           <CardContent className="p-5">
             <p className="text-xs text-[#8898aa] uppercase tracking-wider mb-2">Saldo Livre</p>
             <p className="text-2xl font-mono font-bold text-[#00d4a0]">{formatBRL(freeBalance)}</p>
-            <p className="text-xs text-[#4a5568] mt-1">após dízimo + contas</p>
+            <p className="text-xs text-[#4a5568] mt-1">após contas</p>
           </CardContent>
         </Card>
         {(['needs', 'wants', 'invest'] as AllocationKey[]).map((key) => {

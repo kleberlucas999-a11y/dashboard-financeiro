@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
   formatBRL, formatUSDT, calcUSDTNet, calcMinUSDTToConvert, calcFreeBalance,
-  calcTithe,
 } from '@/lib/utils'
 import { BillStatus } from '@/types'
 import {
@@ -40,9 +39,8 @@ export function PlanningWidget() {
   const overdueTotal = overduePending.reduce((s, b) => s + b.amount, 0)
   const allBillsBRL = month.bills.filter(b => b.status !== 'quitado').reduce((s, b) => s + b.amount, 0)
   const minToConvert = calcMinUSDTToConvert(month)
-  const usdtTithe = calcTithe(usdtNet)
   const usdtForBills = (allBillsBRL + overdueTotal) / rate
-  const usdtRemaining = usdtNet - usdtTithe - usdtForBills
+  const usdtRemaining = usdtNet - usdtForBills
   const freeBalance = calcFreeBalance(month)
   const paidBills = month.bills.filter(b => b.status === 'pago').length
   const totalBills = month.bills.length
@@ -60,10 +58,9 @@ export function PlanningWidget() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {[
                 { label: 'USDT líquido', value: formatUSDT(usdtNet), color: '#26a17b' },
-                { label: '− Dízimo (10%)', value: formatUSDT(usdtTithe), color: '#f5a020' },
                 { label: '− Contas + atrasados', value: formatUSDT(usdtForBills), color: '#f06060' },
                 { label: '= Saldo livre', value: formatUSDT(Math.max(0, usdtRemaining)), color: '#00d4a0' },
               ].map(({ label, value, color }) => (

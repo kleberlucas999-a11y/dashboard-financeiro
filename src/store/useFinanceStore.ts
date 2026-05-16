@@ -25,16 +25,12 @@ const DEFAULT_ALLOCATION: Allocation = {
   needsSpent: 0, wantsSpent: 0, investSpent: 0, movements: [],
 }
 
-function createDefaultBankAccounts(hasTithe = false): BankAccount[] {
-  const accounts: BankAccount[] = [
+function createDefaultBankAccounts(): BankAccount[] {
+  return [
     { id: generateId(), name: 'Operacional', type: 'operacional', color: '#00d4a0', initialBalance: 0, transactions: [] },
     { id: generateId(), name: 'USDT / APY', type: 'usdt', color: '#26a17b', initialBalance: 0, transactions: [] },
     { id: generateId(), name: 'Investimento BR', type: 'investimento', color: '#6366f1', initialBalance: 0, transactions: [] },
   ]
-  if (hasTithe) {
-    accounts.push({ id: generateId(), name: 'Dízimo', type: 'dizimo', color: '#f5a020', initialBalance: 0, transactions: [] })
-  }
-  return accounts
 }
 
 function createDefaultMonth(year: number, month: number, exchangeRate: number): MonthlyData {
@@ -223,29 +219,9 @@ export const useFinanceStore = create<FinanceStore>()(
 
         // ── Onboarding ──────────────────────────────────────────────────────
 
-        completeOnboarding: (profile) => set((s) => {
-          // If user wants dízimo and no dízimo account exists yet, add one to all months
-          const months = { ...s.months }
-          if (profile.hasTithe) {
-            Object.keys(months).forEach((mid) => {
-              const month = months[mid]
-              const hasDizimo = month.bankAccounts.some((a) => a.type === 'dizimo')
-              if (!hasDizimo) {
-                months[mid] = {
-                  ...month,
-                  bankAccounts: [
-                    ...month.bankAccounts,
-                    { id: generateId(), name: 'Dízimo', type: 'dizimo' as const, color: '#f5a020', initialBalance: 0, transactions: [] },
-                  ],
-                }
-              }
-            })
-          }
-          return {
-            months,
-            userProfile: { ...profile, onboardingComplete: true, onboardingCompletedAt: new Date().toISOString() },
-          }
-        }),
+        completeOnboarding: (profile) => set(() => ({
+          userProfile: { ...profile, onboardingComplete: true, onboardingCompletedAt: new Date().toISOString() },
+        })),
 
         updateUserProfile: (updates) =>
           set((s) => ({ userProfile: s.userProfile ? { ...s.userProfile, ...updates } : null })),
@@ -468,43 +444,28 @@ export const useFinanceStore = create<FinanceStore>()(
             const month = s.months[monthId]
             if (!month) return s
             const fixedIncome = month.fixedIncome || 0
-            const hasTithe = s.userProfile?.hasTithe ?? false
-            const tithe = hasTithe ? Math.round(fixedIncome * 0.1 * 100) / 100 : 0
             const date = new Date().toISOString().slice(0, 10)
 
             const incomeAcc = month.bankAccounts.find((a) => a.id === incomeAccountId)
             if (!incomeAcc) return s
 
-            const dizimoAcc = hasTithe ? month.bankAccounts.find((a) => a.type === 'dizimo') : null
-            if (hasTithe && !dizimoAcc) return s
-
-            // Register: salary in on chosen account; if hasTithe, debit tithe and credit Dízimo account.
-            const newAccounts = month.bankAccounts.map((acc) => {
-              if (acc.id === incomeAcc.id) {
-                const txs: BankTransaction[] = [
-                  { id: generateId(), date, description: `Salário — 5º dia útil`, amount: fixedIncome, type: 'entrada', linkedBillId: '__salary__' },
-                ]
-                if (hasTithe) {
-                  txs.push({ id: generateId(), date, description: `Dízimo 10% — R$${tithe.toFixed(0)}`, amount: tithe, type: 'saida', linkedBillId: '__salary__' })
-                }
-                return { ...acc, transactions: [...acc.transactions, ...txs] }
-              }
-              if (hasTithe && dizimoAcc && acc.id === dizimoAcc.id) {
-                return {
-                  ...acc,
-                  transactions: [
-                    ...acc.transactions,
-                    { id: generateId(), date, description: `Dízimo do salário`, amount: tithe, type: 'entrada' as const, linkedBillId: '__salary__' },
-                  ],
-                }
-              }
-              return acc
-            })
-
             return {
               months: {
                 ...s.months,
-                [monthId]: { ...month, bankAccounts: newAccounts },
+                [monthId]: {
+                  ...month,
+                  bankAccounts: month.bankAccounts.map((acc) =>
+                    acc.id === incomeAcc.id
+                      ? {
+                          ...acc,
+                          transactions: [
+                            ...acc.transactions,
+                            { id: generateId(), date, description: `Salário — 5º dia útil`, amount: fixedIncome, type: 'entrada' as const, linkedBillId: '__salary__' },
+                          ],
+                        }
+                      : acc
+                  ),
+                },
               },
             }
           }),
@@ -769,7 +730,6 @@ export const useFinanceStore = create<FinanceStore>()(
             const validIds = new Set<string>([
               '__salary__',
               '__usdt_received__',
-              '__dizimo__',
               ...month.bills.map(b => b.id),
               ...(month.overdueBills || []).map(b => b.id),
               ...(month.dailyExpenses || []).map(e => `__daily__${e.id}`),

@@ -6,10 +6,10 @@ import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
-  formatBRL, formatUSDT, calcTotalIncome, calcTotalTithe,
+  formatBRL, formatUSDT, calcTotalIncome,
   calcUSDTInBRL, calcFreeBalance, calcUSDTNet, getBillsFirstHalf, getBillsSecondHalf,
 } from '@/lib/utils'
-import { TrendingUp, Wallet, Church, Coins, Pencil, Check, X, RefreshCw, BarChart3, ArrowUpRight, Target } from 'lucide-react'
+import { TrendingUp, Wallet, Coins, Pencil, Check, X, RefreshCw, BarChart3, ArrowUpRight, Target } from 'lucide-react'
 import { BankAccount, FinancialGoal } from '@/types'
 
 function calcAccountBalance(acc: BankAccount): number {
@@ -20,14 +20,12 @@ const ACCOUNT_COLORS: Record<string, string> = {
   operacional: '#00d4a0',
   usdt: '#26a17b',
   investimento: '#6366f1',
-  dizimo: '#f5a020',
 }
 
 const ACCOUNT_LABELS: Record<string, string> = {
   operacional: 'Operacional',
   usdt: 'USDT / APY',
   investimento: 'Investimento BR (CDB)',
-  dizimo: 'Dízimo',
 }
 
 // ─── Inline-editable income card ─────────────────────────────────────────────
@@ -225,7 +223,6 @@ export function OverviewWidget() {
 
   const rate = month.exchangeRate || exchangeRate.rate
   const totalIncome = calcTotalIncome(month)
-  const tithe = calcTotalTithe(month)
   const usdtNet = calcUSDTNet(month)
   const usdtConverted = calcUSDTInBRL(usdtNet, rate)
 
@@ -290,21 +287,6 @@ export function OverviewWidget() {
             <p className="text-xs text-[#4a5568] mt-1 font-mono">
               Fixo {formatBRL(month.fixedIncome)} + USDT {formatBRL(usdtConverted)}
             </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:border-[#243048] transition-colors">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-xs text-[#8898aa] uppercase tracking-wider mb-2">Dízimo (10%)</p>
-                <p className="text-2xl font-mono font-bold text-[#f5a020]">{formatBRL(tithe)}</p>
-                <p className="text-xs text-[#4a5568] mt-1">sai primeiro</p>
-              </div>
-              <div className="p-2.5 rounded-xl bg-[#f5a020]/10">
-                <Church size={18} className="text-[#f5a020]" />
-              </div>
-            </div>
           </CardContent>
         </Card>
 

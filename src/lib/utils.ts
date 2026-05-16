@@ -60,10 +60,6 @@ export function getBillsSecondHalf(bills: Bill[]): Bill[] {
   return bills.filter((b) => b.dueDay > 14)
 }
 
-export function calcTithe(amount: number): number {
-  return amount * 0.1
-}
-
 export function calcUSDTInBRL(usdtAmount: number, rate: number): number {
   return usdtAmount * rate
 }
@@ -85,11 +81,6 @@ export function calcTotalIncome(data: MonthlyData): number {
   const usdtNet = calcUSDTNet(data)
   const usdtBRL = calcUSDTInBRL(usdtNet, rate)
   return data.fixedIncome + usdtBRL
-}
-
-/** Tithe on TOTAL gross income */
-export function calcTotalTithe(data: MonthlyData): number {
-  return calcTithe(calcTotalIncome(data))
 }
 
 /**
@@ -117,19 +108,17 @@ export function calcMinUSDTToConvert(data: MonthlyData): number {
 
 /**
  * Free balance available for 50-30-20 allocation.
- * = total income (fixedIncome + USDT converted) − tithe − all active bills
- * The fixedIncome (salary) is always counted as available cash.
+ * = total income − all active bills − overdue pending
  */
 export function calcFreeBalance(data: MonthlyData): number {
   const totalIncome = calcTotalIncome(data)
-  const tithe = calcTotalTithe(data)
   const totalBills = data.bills
     .filter((b) => b.status !== 'quitado')
     .reduce((s, b) => s + b.amount, 0)
   const overdueUnpaid = (data.overdueBills || [])
     .filter((b) => b.status !== 'pago' && b.status !== 'quitado')
     .reduce((s, b) => s + b.amount, 0)
-  return totalIncome - tithe - totalBills - overdueUnpaid
+  return totalIncome - totalBills - overdueUnpaid
 }
 
 export function calcMonthlyAPYReturn(usdtAmount: number, apyPercent: number): number {
