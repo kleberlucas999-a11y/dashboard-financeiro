@@ -95,7 +95,8 @@ const TIPO_COLORS: Record<string, string> = {
 type Step = 'upload' | 'preview' | 'done'
 
 export function ImportWidget({ onClose }: { onClose: () => void }) {
-  const { currentMonthId, importExpenses } = useFinanceStore()
+  const { currentMonthId, importExpenses, exchangeRate } = useFinanceStore()
+  const rate = exchangeRate.rate
   const [step, setStep] = useState<Step>('upload')
   const [rows, setRows] = useState<ParsedRow[]>([])
   const [dragging, setDragging] = useState(false)
@@ -125,7 +126,8 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
 
   const validRows = rows.filter(r => r.valid)
   const invalidRows = rows.filter(r => !r.valid)
-  const totalAmount = validRows.reduce((s, r) => s + r.row.amount, 0)
+  // Convert USDT rows to BRL for the total
+  const totalAmount = validRows.reduce((s, r) => s + (r.row.conta === 'usdt' ? r.row.amount * rate : r.row.amount), 0)
 
   const handleConfirm = () => {
     importExpenses(currentMonthId, validRows.map(r => r.row))
@@ -243,7 +245,14 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
 
               {/* Total */}
               <div className="flex items-center justify-between p-3 rounded-xl bg-[#07090d] border border-[#1a2030]">
-                <p className="text-sm text-[#8898aa]">Total a importar</p>
+                <div>
+                  <p className="text-sm text-[#8898aa]">Total a importar (em BRL)</p>
+                  {validRows.some(r => r.row.conta === 'usdt') && (
+                    <p className="text-xs text-[#26a17b] mt-0.5">
+                      Inclui {validRows.filter(r => r.row.conta === 'usdt').reduce((s,r) => s + r.row.amount, 0).toFixed(2)} USDT × R${rate.toFixed(2)}
+                    </p>
+                  )}
+                </div>
                 <p className="text-base font-mono font-bold text-[#e8ecf4]">{formatBRL(totalAmount)}</p>
               </div>
 
@@ -267,8 +276,17 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
                           {r.row.date ? r.row.date.split('-').reverse().join('/').slice(0,5) : '—'}
                         </td>
                         <td className="px-3 py-2 text-[#e8ecf4] max-w-[160px] truncate">{r.row.description || '—'}</td>
-                        <td className="px-3 py-2 text-[#e8ecf4] font-mono whitespace-nowrap">
-                          {r.row.amount > 0 ? formatBRL(r.row.amount) : '—'}
+                        <td className="px-3 py-2 font-mono whitespace-nowrap">
+                          {r.row.amount > 0 ? (
+                            r.row.conta === 'usdt' ? (
+                              <span className="flex flex-col">
+                                <span className="text-[#26a17b] font-bold">{r.row.amount.toFixed(2)} USDT</span>
+                                <span className="text-[#4a5568] text-[10px]">≈ {formatBRL(r.row.amount * rate)}</span>
+                              </span>
+                            ) : (
+                              <span className="text-[#e8ecf4]">{formatBRL(r.row.amount)}</span>
+                            )
+                          ) : '—'}
                         </td>
                         <td className="px-3 py-2 text-[#8898aa]">{r.row.category}</td>
                         <td className="px-3 py-2">

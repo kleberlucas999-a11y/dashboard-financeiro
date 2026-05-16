@@ -617,35 +617,47 @@ export const useFinanceStore = create<FinanceStore>()(
 
             const newBills: Bill[] = []
 
+            const exchangeRate = s.months[monthId]?.exchangeRate ?? s.exchangeRate.rate
+
             for (const row of rows) {
               const billId = generateId()
               const dueDay = parseInt(row.date.split('-')[2]) || 1
+              const isUsdt = row.conta === 'usdt'
+
+              // For USDT rows: convert to BRL for the bill amount; store USDT amount in the transaction
+              const brlAmount = isUsdt ? Math.round(row.amount * exchangeRate * 100) / 100 : row.amount
+              const txAmount = row.amount // always in the account's native currency
 
               // Determine effective category: credit card bills always use 'cartao'
               const category = (row.conta === 'cartao_credito' ? 'cartao' : row.category) as Bill['category']
 
+              // Append USDT annotation to description
+              const description = isUsdt
+                ? `${row.description} (${row.amount.toFixed(2)} USDT)`
+                : row.description
+
               const bill: Bill = {
                 id: billId,
-                name: row.description,
-                amount: row.amount,
+                name: description,
+                amount: brlAmount,
                 dueDay,
                 category,
                 status: row.status as BillStatus,
-                notes: `Importado em ${new Date().toLocaleDateString('pt-BR')}`,
+                notes: `Importado em ${new Date().toLocaleDateString('pt-BR')}${isUsdt ? ` · Cotação R$${exchangeRate.toFixed(2)}` : ''}`,
                 isVariable: true,
               }
               newBills.push(bill)
 
               // Create bank transaction for operacional or usdt (not credit card)
               if (row.status === 'pago' && row.conta !== 'cartao_credito') {
-                const accType = row.conta === 'usdt' ? 'usdt' : 'operacional'
+                const accType = isUsdt ? 'usdt' : 'operacional'
                 const targetAcc = updatedMonth.bankAccounts.find(a => a.type === accType)
                 if (targetAcc) {
                   targetAcc.transactions.push({
                     id: generateId(),
                     date: row.date,
-                    description: row.description,
-                    amount: row.amount,
+                    description,
+                    amount: txAmount, // USDT account stores USDT; operacional stores BRL
                     type: 'saida',
                     linkedBillId: billId,
                   })
