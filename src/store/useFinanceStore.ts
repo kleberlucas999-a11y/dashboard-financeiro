@@ -175,15 +175,26 @@ export const useFinanceStore = create<FinanceStore>()(
 
         // ── Auth / Supabase sync ────────────────────────────────────────────
 
-        loadFromSupabase: (userId, data) =>
+        loadFromSupabase: (userId, data) => {
+          // Migration: strip legacy grossAmount/discount fields
+          let cleanedMonths = data.months
+          if (cleanedMonths) {
+            const cleaned: Record<string, MonthlyData> = {}
+            for (const [id, m] of Object.entries(cleanedMonths)) {
+              const { grossAmount, discount, discountLabel, ...cleanSettings } = m.usdtSettings as any
+              cleaned[id] = { ...m, usdtSettings: cleanSettings }
+            }
+            cleanedMonths = cleaned
+          }
           set({
             userId,
-            ...(data.months && { months: data.months }),
+            ...(cleanedMonths && { months: cleanedMonths }),
             ...(data.userProfile !== undefined && { userProfile: data.userProfile }),
             ...(data.currentMonthId && { currentMonthId: data.currentMonthId }),
             ...(data.exchangeRate && { exchangeRate: data.exchangeRate }),
             syncStatus: 'idle',
-          }),
+          })
+        },
 
         syncToSupabase: async () => {
           const state = get()
@@ -837,6 +848,17 @@ export const useFinanceStore = create<FinanceStore>()(
     {
       name: 'finance-dashboard-v2',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        // Migration: strip legacy grossAmount/discount fields from all months
+        if (state?.months) {
+          const cleaned: Record<string, MonthlyData> = {}
+          for (const [id, m] of Object.entries(state.months)) {
+            const { grossAmount, discount, discountLabel, ...cleanSettings } = m.usdtSettings as any
+            cleaned[id] = { ...m, usdtSettings: cleanSettings }
+          }
+          state.months = cleaned
+        }
+      },
     }
   )
 )

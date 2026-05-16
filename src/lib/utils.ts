@@ -64,14 +64,11 @@ export function calcUSDTInBRL(usdtAmount: number, rate: number): number {
   return usdtAmount * rate
 }
 
-/** Net USDT for the month (gross - discount). Returns 0 if not yet received. */
+/** Net USDT for the month. Returns 0 if not yet received. */
 export function calcUSDTNet(data: MonthlyData): number {
   const s = data.usdtSettings
   // received === false means user hasn't received it yet → exclude from calculations
   if (s.received === false) return 0
-  if (s.grossAmount !== undefined && s.discount !== undefined) {
-    return s.grossAmount - s.discount
-  }
   return s.monthlyAmount
 }
 
