@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import { supabase } from '@/lib/supabase/client'
 
-const DEBOUNCE_MS = 2000
+const DEBOUNCE_MS = 800
 
 /**
  * Monitors Zustand store changes and auto-saves to Supabase (debounced).
