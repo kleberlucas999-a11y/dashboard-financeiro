@@ -60,6 +60,8 @@ export interface Bill {
   isVariable?: boolean
   installments?: number
   installmentCurrent?: number
+  isCreditCardFatura?: boolean  // auto-generated invoice from previous month's CC expenses
+  faturaSourceMonth?: string    // monthId (YYYY-MM) whose CC expenses compose this bill
 }
 
 export interface USDTConversion {

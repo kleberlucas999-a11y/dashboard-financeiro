@@ -7,7 +7,7 @@ import {
   Allocation, AllocationKey, AllocationMovement, USDTConversion, BankTransaction,
   UserProfile, FinancialGoal, AdvisorMessage, BankAccount, DailyExpense, DailyExpenseCategory,
 } from '@/types'
-import { generateId, getMonthId, parseMonthId } from '@/lib/utils'
+import { generateId, getMonthId, parseMonthId, getMonthLabel } from '@/lib/utils'
 import { supabase } from '@/lib/supabase/client'
 
 // ─── New users start with empty bills — they add their own ──────────────────
@@ -47,6 +47,57 @@ function createDefaultMonth(year: number, month: number, exchangeRate: number): 
     bankAccounts: createDefaultBankAccounts(),
     notes: '',
   }
+}
+
+// ─── Credit card fatura sync ─────────────────────────────────────────────────
+// Recalculates the auto-generated fatura bill in the NEXT month whenever CC
+// daily expenses change in sourceMonthId. Only mutates next month if it already
+// exists — if it doesn't, the fatura is created when the user navigates there
+// (handled inside setCurrentMonth).
+function syncCreditCardFatura(
+  months: Record<string, MonthlyData>,
+  sourceMonthId: string,
+  fallbackRate: number
+): Record<string, MonthlyData> {
+  const src = months[sourceMonthId]
+  if (!src) return months
+
+  const rate = src.exchangeRate || fallbackRate
+  const ccTotal = Math.round(
+    (src.dailyExpenses ?? [])
+      .filter(e => e.conta === 'cartao_credito')
+      .reduce((s, e) => s + e.amount, 0) * 100
+  ) / 100
+
+  // Next month
+  const nextDate    = new Date(src.year, src.month, 1) // src.month is 1-based → JS month index
+  const nextMonthId = getMonthId(nextDate.getFullYear(), nextDate.getMonth() + 1)
+  const next        = months[nextMonthId]
+  if (!next) return months // will be handled on navigation
+
+  const idx = next.bills.findIndex(b => b.isCreditCardFatura && b.faturaSourceMonth === sourceMonthId)
+
+  let updatedBills: typeof next.bills
+  if (ccTotal <= 0) {
+    if (idx < 0) return months
+    updatedBills = next.bills.filter((_, i) => i !== idx)
+  } else {
+    const fatura = {
+      id:                  idx >= 0 ? next.bills[idx].id : generateId(),
+      name:                `Fatura Cartão — ${getMonthLabel(src.year, src.month)}`,
+      amount:              ccTotal,
+      dueDay:              idx >= 0 ? next.bills[idx].dueDay : 10,
+      category:            'cartao' as const,
+      status:              idx >= 0 ? next.bills[idx].status : 'pendente' as const,
+      isCreditCardFatura:  true,
+      faturaSourceMonth:   sourceMonthId,
+    }
+    updatedBills = idx >= 0
+      ? next.bills.map((b, i) => i === idx ? fatura : b)
+      : [...next.bills, fatura]
+  }
+
+  return { ...months, [nextMonthId]: { ...next, bills: updatedBills } }
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -322,9 +373,10 @@ export const useFinanceStore = create<FinanceStore>()(
 
               const carried: Bill[] = []
               for (const bill of prevMonth.bills) {
-                // Never carry variable bills or bills already marked as quitado
+                // Never carry variable bills, quitado bills, or auto-generated faturas
                 if (bill.isVariable) continue
                 if (bill.status === 'quitado') continue
+                if (bill.isCreditCardFatura) continue
 
                 if (bill.installments && bill.installmentCurrent) {
                   // Last installment reached — don't carry
@@ -341,6 +393,25 @@ export const useFinanceStore = create<FinanceStore>()(
                 }
               }
               newMonth.bills = carried
+
+              // Create fatura for CC expenses from the previous month
+              const ccTotal = Math.round(
+                (prevMonth.dailyExpenses ?? [])
+                  .filter(e => e.conta === 'cartao_credito')
+                  .reduce((s, e) => s + e.amount, 0) * 100
+              ) / 100
+              if (ccTotal > 0) {
+                newMonth.bills.push({
+                  id:               generateId(),
+                  name:             `Fatura Cartão — ${getMonthLabel(prevMonth.year, prevMonth.month)}`,
+                  amount:           ccTotal,
+                  dueDay:           10,
+                  category:         'cartao',
+                  status:           'pendente',
+                  isCreditCardFatura: true,
+                  faturaSourceMonth:  prevId,
+                })
+              }
             }
 
             set((s) => ({ months: { ...s.months, [monthId]: newMonth }, currentMonthId: monthId }))
@@ -749,16 +820,15 @@ export const useFinanceStore = create<FinanceStore>()(
               }
             }
 
-            return {
-              months: {
-                ...s.months,
-                [monthId]: {
-                  ...month,
-                  bankAccounts: updatedAccounts,
-                  dailyExpenses: [...(month.dailyExpenses ?? []), ...newExpenses],
-                },
+            const updatedMonths = {
+              ...s.months,
+              [monthId]: {
+                ...month,
+                bankAccounts: updatedAccounts,
+                dailyExpenses: [...(month.dailyExpenses ?? []), ...newExpenses],
               },
             }
+            return { months: syncCreditCardFatura(updatedMonths, monthId, s.exchangeRate.rate) }
           }),
 
         clearImportedBills: (monthId) =>
@@ -842,53 +912,49 @@ export const useFinanceStore = create<FinanceStore>()(
               })
             }
 
-            return {
-              months: {
-                ...s.months,
-                [monthId]: {
-                  ...month,
-                  dailyExpenses: [...(month.dailyExpenses ?? []), newExpense],
-                  bankAccounts: updatedAccounts,
-                },
+            const updatedMonths = {
+              ...s.months,
+              [monthId]: {
+                ...month,
+                dailyExpenses: [...(month.dailyExpenses ?? []), newExpense],
+                bankAccounts: updatedAccounts,
               },
             }
+            return { months: syncCreditCardFatura(updatedMonths, monthId, s.exchangeRate.rate) }
           }),
 
         updateDailyExpense: (monthId, expenseId, updates) =>
           set((s) => {
             const month = s.months[monthId]
             if (!month) return s
-            return {
-              months: {
-                ...s.months,
-                [monthId]: {
-                  ...month,
-                  dailyExpenses: (month.dailyExpenses ?? []).map((e) =>
-                    e.id === expenseId ? { ...e, ...updates } : e
-                  ),
-                },
+            const updatedMonths = {
+              ...s.months,
+              [monthId]: {
+                ...month,
+                dailyExpenses: (month.dailyExpenses ?? []).map((e) =>
+                  e.id === expenseId ? { ...e, ...updates } : e
+                ),
               },
             }
+            return { months: syncCreditCardFatura(updatedMonths, monthId, s.exchangeRate.rate) }
           }),
 
         deleteDailyExpense: (monthId, expenseId) =>
           set((s) => {
             const month = s.months[monthId]
             if (!month) return s
-            return {
-              months: {
-                ...s.months,
-                [monthId]: {
-                  ...month,
-                  dailyExpenses: (month.dailyExpenses ?? []).filter((e) => e.id !== expenseId),
-                  // Remove linked bank transaction
-                  bankAccounts: month.bankAccounts.map((acc) => ({
-                    ...acc,
-                    transactions: acc.transactions.filter((tx) => tx.linkedBillId !== `__daily__${expenseId}`),
-                  })),
-                },
+            const updatedMonths = {
+              ...s.months,
+              [monthId]: {
+                ...month,
+                dailyExpenses: (month.dailyExpenses ?? []).filter((e) => e.id !== expenseId),
+                bankAccounts: month.bankAccounts.map((acc) => ({
+                  ...acc,
+                  transactions: acc.transactions.filter((tx) => tx.linkedBillId !== `__daily__${expenseId}`),
+                })),
               },
             }
+            return { months: syncCreditCardFatura(updatedMonths, monthId, s.exchangeRate.rate) }
           }),
 
         deleteDailyExpenses: (monthId, expenseIds) =>
@@ -897,19 +963,18 @@ export const useFinanceStore = create<FinanceStore>()(
             if (!month || expenseIds.length === 0) return s
             const toDelete = new Set(expenseIds)
             const linkedIds = new Set(expenseIds.map((id) => `__daily__${id}`))
-            return {
-              months: {
-                ...s.months,
-                [monthId]: {
-                  ...month,
-                  dailyExpenses: (month.dailyExpenses ?? []).filter((e) => !toDelete.has(e.id)),
-                  bankAccounts: month.bankAccounts.map((acc) => ({
-                    ...acc,
-                    transactions: acc.transactions.filter((tx) => !tx.linkedBillId || !linkedIds.has(tx.linkedBillId)),
-                  })),
-                },
+            const updatedMonths = {
+              ...s.months,
+              [monthId]: {
+                ...month,
+                dailyExpenses: (month.dailyExpenses ?? []).filter((e) => !toDelete.has(e.id)),
+                bankAccounts: month.bankAccounts.map((acc) => ({
+                  ...acc,
+                  transactions: acc.transactions.filter((tx) => !tx.linkedBillId || !linkedIds.has(tx.linkedBillId)),
+                })),
               },
             }
+            return { months: syncCreditCardFatura(updatedMonths, monthId, s.exchangeRate.rate) }
           }),
 
         setSidebarOpen: (open) => set({ sidebarOpen: open }),

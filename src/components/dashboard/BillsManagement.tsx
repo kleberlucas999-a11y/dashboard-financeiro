@@ -13,7 +13,7 @@ import {
   formatBRL, getCategoryLabel, getCategoryColor, getBillDiagnosis,
   getBillsFirstHalf, getBillsSecondHalf,
 } from '@/lib/utils'
-import { Plus, Trash2, Pencil, CheckCircle2, Circle, XCircle, Info, AlertTriangle, Wallet, CreditCard } from 'lucide-react'
+import { Plus, Trash2, Pencil, CheckCircle2, Circle, XCircle, Info, AlertTriangle, Wallet, CreditCard, RefreshCw } from 'lucide-react'
 
 const categoryOptions = [
   { value: 'moradia', label: 'Moradia' },
@@ -134,12 +134,13 @@ function BillRow({ bill, accounts, onEdit, onDelete, onToggle }: {
   onDelete: (id: string) => void
   onToggle: (b: Bill) => void
 }) {
+  const isFatura = !!bill.isCreditCardFatura
   const diagnosis = getBillDiagnosis(bill)
   const catColor = getCategoryColor(bill.category)
   const paidFrom = bill.status === 'pago' ? getPaidFromAccount(bill.id, accounts) : null
   return (
     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all hover:border-[#243048] ${
-      bill.status === 'quitado' ? 'opacity-40 border-[#1a2030]' : 'border-[#1a2030]'
+      bill.status === 'quitado' ? 'opacity-40 border-[#1a2030]' : isFatura ? 'border-[#6366f1]/40' : 'border-[#1a2030]'
     }`}>
       <button onClick={() => onToggle(bill)} className="cursor-pointer shrink-0">
         <StatusIcon status={bill.status} />
@@ -148,12 +149,20 @@ function BillRow({ bill, accounts, onEdit, onDelete, onToggle }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-[#e8ecf4] truncate">{bill.name}</span>
-          {bill.notes && <span title={bill.notes}><Info size={12} className="text-[#f5a020]" /></span>}
+          {isFatura && (
+            <span className="flex items-center gap-1 text-[10px] font-medium text-[#6366f1] bg-[#6366f1]/10 border border-[#6366f1]/25 px-1.5 py-0.5 rounded-full">
+              <RefreshCw size={9} /> Auto
+            </span>
+          )}
+          {bill.notes && !isFatura && <span title={bill.notes}><Info size={12} className="text-[#f5a020]" /></span>}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs text-[#4a5568]">dia {bill.dueDay}</span>
           <span className="text-xs text-[#4a5568]">·</span>
           <span className="text-xs text-[#4a5568]">{getCategoryLabel(bill.category)}</span>
+          {isFatura && (
+            <span className="text-[10px] text-[#6366f1]">· calculada dos gastos no cartão</span>
+          )}
           {paidFrom && (
             <>
               <span className="text-xs text-[#4a5568]">·</span>
@@ -171,15 +180,24 @@ function BillRow({ bill, accounts, onEdit, onDelete, onToggle }: {
             {bill.installmentCurrent}/{bill.installments}x
           </span>
         )}
-        <DiagnosisBadge diagnosis={diagnosis} />
+        {!isFatura && <DiagnosisBadge diagnosis={diagnosis} />}
         <StatusBadge status={bill.status} />
         <span className="text-sm font-mono font-semibold text-[#e8ecf4] min-w-[90px] text-right">{formatBRL(bill.amount)}</span>
-        <button onClick={() => onEdit(bill)} className="p-1.5 rounded-lg text-[#4a5568] hover:text-[#e8ecf4] hover:bg-[#1a2030] cursor-pointer transition-colors">
-          <Pencil size={13} />
-        </button>
-        <button onClick={() => onDelete(bill.id)} className="p-1.5 rounded-lg text-[#4a5568] hover:text-[#f06060] hover:bg-[#f06060]/10 cursor-pointer transition-colors">
-          <Trash2 size={13} />
-        </button>
+        {isFatura ? (
+          // Fatura: allow status toggle + delete, but no manual edit (amount is auto-calculated)
+          <button onClick={() => onDelete(bill.id)} className="p-1.5 rounded-lg text-[#4a5568] hover:text-[#f06060] hover:bg-[#f06060]/10 cursor-pointer transition-colors" title="Remover fatura">
+            <Trash2 size={13} />
+          </button>
+        ) : (
+          <>
+            <button onClick={() => onEdit(bill)} className="p-1.5 rounded-lg text-[#4a5568] hover:text-[#e8ecf4] hover:bg-[#1a2030] cursor-pointer transition-colors">
+              <Pencil size={13} />
+            </button>
+            <button onClick={() => onDelete(bill.id)} className="p-1.5 rounded-lg text-[#4a5568] hover:text-[#f06060] hover:bg-[#f06060]/10 cursor-pointer transition-colors">
+              <Trash2 size={13} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
