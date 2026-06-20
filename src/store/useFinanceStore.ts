@@ -309,6 +309,40 @@ export const useFinanceStore = create<FinanceStore>()(
           if (!months[monthId]) {
             const { year, month } = parseMonthId(monthId)
             const newMonth = createDefaultMonth(year, month, get().exchangeRate.rate)
+
+            // Carry over fixed + installment bills from the previous month
+            const prevDate  = new Date(year, month - 2, 1) // month is 1-based
+            const prevId    = getMonthId(prevDate.getFullYear(), prevDate.getMonth() + 1)
+            const prevMonth = months[prevId]
+
+            if (prevMonth) {
+              // Also carry income + USDT settings so user doesn't have to re-enter every month
+              newMonth.fixedIncome  = prevMonth.fixedIncome
+              newMonth.usdtSettings = { ...prevMonth.usdtSettings, received: false }
+
+              const carried: Bill[] = []
+              for (const bill of prevMonth.bills) {
+                // Never carry variable bills or bills already marked as quitado
+                if (bill.isVariable) continue
+                if (bill.status === 'quitado') continue
+
+                if (bill.installments && bill.installmentCurrent) {
+                  // Last installment reached — don't carry
+                  if (bill.installmentCurrent >= bill.installments) continue
+                  carried.push({
+                    ...bill,
+                    id: generateId(),
+                    status: 'pendente',
+                    installmentCurrent: bill.installmentCurrent + 1,
+                  })
+                } else {
+                  // Fixed recurring bill
+                  carried.push({ ...bill, id: generateId(), status: 'pendente' })
+                }
+              }
+              newMonth.bills = carried
+            }
+
             set((s) => ({ months: { ...s.months, [monthId]: newMonth }, currentMonthId: monthId }))
           } else {
             set({ currentMonthId: monthId })
