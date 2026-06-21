@@ -49,6 +49,36 @@ function createDefaultMonth(year: number, month: number, exchangeRate: number): 
   }
 }
 
+// ─── Data migration helpers ───────────────────────────────────────────────────
+
+/**
+ * Removes bank transactions that were incorrectly created for credit-card
+ * daily expenses. CC expenses must never deduct from bank accounts — only
+ * the fatura bill payment does that.
+ */
+function removeCCBankTransactions(months: Record<string, MonthlyData>): Record<string, MonthlyData> {
+  const result: Record<string, MonthlyData> = {}
+  for (const [id, month] of Object.entries(months)) {
+    const ccLinkedIds = new Set(
+      (month.dailyExpenses ?? [])
+        .filter(e => e.conta === 'cartao_credito')
+        .map(e => `__daily__${e.id}`)
+    )
+    if (ccLinkedIds.size === 0) {
+      result[id] = month
+      continue
+    }
+    result[id] = {
+      ...month,
+      bankAccounts: month.bankAccounts.map(acc => ({
+        ...acc,
+        transactions: acc.transactions.filter(tx => !ccLinkedIds.has(tx.linkedBillId ?? '')),
+      })),
+    }
+  }
+  return result
+}
+
 // ─── Credit card fatura sync ─────────────────────────────────────────────────
 // Recalculates the auto-generated fatura bill in the NEXT month whenever CC
 // daily expenses change in sourceMonthId. Only mutates next month if it already
@@ -251,6 +281,7 @@ export const useFinanceStore = create<FinanceStore>()(
             }
             cleanedMonths = cleaned
           }
+          if (cleanedMonths) cleanedMonths = removeCCBankTransactions(cleanedMonths)
           set({
             userId,
             ...(cleanedMonths && { months: cleanedMonths }),
@@ -1074,7 +1105,6 @@ export const useFinanceStore = create<FinanceStore>()(
       name: 'finance-dashboard-v2',
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
-        // Migration: strip legacy grossAmount/discount fields + remove dizimo bank accounts + remove tithe saida transactions
         if (state?.months) {
           const cleaned: Record<string, MonthlyData> = {}
           for (const [id, m] of Object.entries(state.months)) {
@@ -1086,14 +1116,14 @@ export const useFinanceStore = create<FinanceStore>()(
                 .filter((a: any) => a.type !== 'dizimo')
                 .map((a: any) => ({
                   ...a,
-                  // Remove old automatic tithe deduction (saida linked to __salary__)
                   transactions: (a.transactions || []).filter(
                     (tx: any) => !(tx.linkedBillId === '__salary__' && tx.type === 'saida')
                   ),
                 })),
             }
           }
-          state.months = cleaned
+          // Remove bank transactions incorrectly linked to CC daily expenses
+          state.months = removeCCBankTransactions(cleaned)
         }
       },
     }
