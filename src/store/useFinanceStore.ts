@@ -948,13 +948,78 @@ export const useFinanceStore = create<FinanceStore>()(
           set((s) => {
             const month = s.months[monthId]
             if (!month) return s
+
+            const old = (month.dailyExpenses ?? []).find(e => e.id === expenseId)
+            if (!old) return s
+
+            const merged    = { ...old, ...updates }
+            const oldConta  = old.conta
+            const newConta  = merged.conta
+            const linkedId  = `__daily__${expenseId}`
+
+            // Reconcile bank transactions when conta or financials change
+            let updatedAccounts = month.bankAccounts
+
+            if (oldConta !== newConta) {
+              if (newConta === 'cartao_credito') {
+                // Moving TO CC: remove existing bank transaction
+                updatedAccounts = month.bankAccounts.map(acc => ({
+                  ...acc,
+                  transactions: acc.transactions.filter(tx => tx.linkedBillId !== linkedId),
+                }))
+              } else if (oldConta === 'cartao_credito') {
+                // Moving FROM CC: create new bank transaction
+                const accType = newConta === 'usdt' ? 'usdt' : 'operacional'
+                updatedAccounts = month.bankAccounts.map(acc => {
+                  if (acc.type !== accType) return acc
+                  const tx: BankTransaction = {
+                    id: generateId(), date: merged.date, description: merged.description,
+                    amount: merged.amount, type: 'saida', linkedBillId: linkedId,
+                  }
+                  return { ...acc, transactions: [...acc.transactions, tx] }
+                })
+              } else {
+                // Moving between operacional ↔ usdt: relocate the transaction
+                const oldAccType = oldConta === 'usdt' ? 'usdt' : 'operacional'
+                const newAccType = newConta === 'usdt' ? 'usdt' : 'operacional'
+                let movedTx: BankTransaction | undefined
+                updatedAccounts = month.bankAccounts.map(acc => {
+                  if (acc.type === oldAccType) {
+                    movedTx = acc.transactions.find(tx => tx.linkedBillId === linkedId)
+                    return { ...acc, transactions: acc.transactions.filter(tx => tx.linkedBillId !== linkedId) }
+                  }
+                  return acc
+                })
+                updatedAccounts = updatedAccounts.map(acc => {
+                  if (acc.type !== newAccType) return acc
+                  const tx: BankTransaction = {
+                    id: movedTx?.id ?? generateId(), date: merged.date,
+                    description: merged.description, amount: merged.amount,
+                    type: 'saida', linkedBillId: linkedId,
+                  }
+                  return { ...acc, transactions: [...acc.transactions, tx] }
+                })
+              }
+            } else if (newConta !== 'cartao_credito') {
+              // Same non-CC conta: keep the transaction but sync amount/date/description
+              updatedAccounts = month.bankAccounts.map(acc => ({
+                ...acc,
+                transactions: acc.transactions.map(tx =>
+                  tx.linkedBillId === linkedId
+                    ? { ...tx, amount: merged.amount, date: merged.date, description: merged.description }
+                    : tx
+                ),
+              }))
+            }
+
             const updatedMonths = {
               ...s.months,
               [monthId]: {
                 ...month,
                 dailyExpenses: (month.dailyExpenses ?? []).map((e) =>
-                  e.id === expenseId ? { ...e, ...updates } : e
+                  e.id === expenseId ? merged : e
                 ),
+                bankAccounts: updatedAccounts,
               },
             }
             return { months: syncCreditCardFatura(updatedMonths, monthId, s.exchangeRate.rate) }
