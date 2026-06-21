@@ -314,14 +314,19 @@ export function AllocationWidget() {
   const expToBRL = (e: { amount: number; conta: string }) =>
     e.conta === 'usdt' ? e.amount * rate : e.amount
 
-  // Despesas = paid bills + daily custo
+  // Despesas = ALL bills (paid + pending, excluding quitado) + daily custo
+  // Pending bills are "committed" spend — money that will leave the account
   const paidBillsTotal = month.bills
     .filter(b => b.status === 'pago')
     .reduce((s, b) => s + b.amount, 0)
+  const pendingBillsTotal = month.bills
+    .filter(b => b.status === 'pendente')
+    .reduce((s, b) => s + b.amount, 0)
+  const allBillsTotal = paidBillsTotal + pendingBillsTotal
   const dailyCusto = dailyExpenses
     .filter(e => (e.tipo ?? 'custo') === 'custo')
     .reduce((s, e) => s + expToBRL(e), 0)
-  const needsSpentAuto = paidBillsTotal + dailyCusto
+  const needsSpentAuto = allBillsTotal + dailyCusto
 
   // Lazer = daily lazer
   const wantsSpentAuto = dailyExpenses
@@ -338,7 +343,10 @@ export function AllocationWidget() {
   }
   // Detail labels for spent breakdown
   const spentDetail: Record<AllocationKey, string> = {
-    needs: `${paidBillsTotal > 0 ? `Contas pagas: ${formatBRL(paidBillsTotal)}` : ''}${paidBillsTotal > 0 && dailyCusto > 0 ? ' + ' : ''}${dailyCusto > 0 ? `Gastos diários: ${formatBRL(dailyCusto)}` : ''}` || 'Nenhum gasto registrado',
+    needs: [
+      allBillsTotal > 0 ? `Contas: ${formatBRL(allBillsTotal)}${pendingBillsTotal > 0 ? ` (${formatBRL(paidBillsTotal)} pago)` : ''}` : '',
+      dailyCusto > 0 ? `Diário: ${formatBRL(dailyCusto)}` : '',
+    ].filter(Boolean).join(' · ') || 'Nenhum gasto registrado',
     wants:  wantsSpentAuto > 0 ? `${dailyExpenses.filter(e => e.tipo === 'lazer').length} gasto(s) de lazer` : 'Nenhum gasto de lazer',
     invest: investSpentAuto > 0 ? `${dailyExpenses.filter(e => e.tipo === 'investimento').length} gasto(s) de investimento` : 'Nenhum gasto de investimento',
   }
@@ -487,11 +495,31 @@ export function AllocationWidget() {
                           style={{ width: `${usedPct}%`, background: over ? '#f06060' : ALLOC_COLORS[key] }} />
                       </div>
                       <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-[#4a5568]">Gasto: <span className="font-mono text-[#e8ecf4]">{formatBRL(spentVal)}</span></span>
+                        <span className="text-[#4a5568]">
+                          {key === 'needs' ? 'Comprometido' : 'Gasto'}:{' '}
+                          <span className="font-mono text-[#e8ecf4]">{formatBRL(spentVal)}</span>
+                        </span>
                         <span className={over ? 'text-[#f06060] font-semibold' : 'text-[#00d4a0] font-semibold'}>
                           {over ? `−${formatBRL(Math.abs(remaining))} excedido` : `+${formatBRL(remaining)} livre`}
                         </span>
                       </div>
+                      {/* Despesas breakdown: bills vs daily */}
+                      {key === 'needs' && (allBillsTotal > 0 || dailyCusto > 0) && (
+                        <p className="text-[10px] text-[#4a5568]">
+                          {allBillsTotal > 0 && (
+                            <>
+                              Contas: <span className="font-mono text-[#e8ecf4]">{formatBRL(allBillsTotal)}</span>
+                              {pendingBillsTotal > 0 && (
+                                <span className="text-[#f5a020]"> ({formatBRL(pendingBillsTotal)} pendente)</span>
+                              )}
+                            </>
+                          )}
+                          {allBillsTotal > 0 && dailyCusto > 0 && <span className="mx-1">·</span>}
+                          {dailyCusto > 0 && (
+                            <>Diário: <span className="font-mono text-[#e8ecf4]">{formatBRL(dailyCusto)}</span></>
+                          )}
+                        </p>
+                      )}
                     </div>
 
                     {/* Account balances */}
