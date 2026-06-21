@@ -407,30 +407,38 @@ function ExpenseRow({
   const [editing, setEditing]       = useState(false)
 
   // Edit draft state
-  const [dDate,    setDDate]    = useState(expense.date)
-  const [dDesc,    setDDesc]    = useState(expense.description)
-  const [dAmount,  setDAmount]  = useState(String(expense.amount))
-  const [dCat,     setDCat]     = useState<DailyExpenseCategory>(expense.category)
-  const [dConta,   setDConta]   = useState<DailyExpenseConta>(expense.conta)
-  const [dTipo,    setDTipo]    = useState<DailyExpenseTipo>(expense.tipo ?? 'custo')
-  const [dNotes,   setDNotes]   = useState(expense.notes ?? '')
+  const [dDate,               setDDate]               = useState(expense.date)
+  const [dDesc,               setDDesc]               = useState(expense.description)
+  const [dAmount,             setDAmount]             = useState(String(expense.amount))
+  const [dCat,                setDCat]                = useState<DailyExpenseCategory>(expense.category)
+  const [dConta,              setDConta]              = useState<DailyExpenseConta>(expense.conta)
+  const [dTipo,               setDTipo]               = useState<DailyExpenseTipo>(expense.tipo ?? 'custo')
+  const [dNotes,              setDNotes]              = useState(expense.notes ?? '')
+  const [dInstallmentCurrent, setDInstallmentCurrent] = useState(String(expense.installmentCurrent ?? ''))
+  const [dInstallments,       setDInstallments]       = useState(String(expense.installments ?? ''))
 
   const openEdit = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // Reset draft to current values
     setDDate(expense.date); setDDesc(expense.description); setDAmount(String(expense.amount))
     setDCat(expense.category); setDConta(expense.conta); setDTipo(expense.tipo ?? 'custo')
     setDNotes(expense.notes ?? '')
+    setDInstallmentCurrent(String(expense.installmentCurrent ?? ''))
+    setDInstallments(String(expense.installments ?? ''))
     setEditing(true)
   }
 
   const saveEdit = () => {
     const parsed = parseFloat(dAmount.replace(',', '.'))
     if (!dDesc.trim() || isNaN(parsed) || parsed <= 0) return
+    const parsedInstallments       = dInstallments       ? parseInt(dInstallments, 10)       : undefined
+    const parsedInstallmentCurrent = dInstallmentCurrent ? parseInt(dInstallmentCurrent, 10) : undefined
     updateDailyExpense(monthId, expense.id, {
       date: dDate, description: dDesc.trim(), amount: parsed,
       category: dCat, conta: dConta, tipo: dTipo,
       notes: dNotes.trim() || undefined,
+      installments:       parsedInstallments,
+      installmentCurrent: parsedInstallmentCurrent,
+      installmentGroupId: expense.installmentGroupId,
     })
     setEditing(false)
   }
@@ -625,6 +633,40 @@ function ExpenseRow({
             <label className="text-[10px] text-[#4a5568] block mb-1">Observação <span className="text-[#1a2030]">(opcional)</span></label>
             <input type="text" value={dNotes} onChange={e => setDNotes(e.target.value)} placeholder="Nota rápida" className={inputCls} />
           </div>
+
+          {/* Row 6: Parcelamento (Cartão de Crédito only) */}
+          {dConta === 'cartao_credito' && (
+            <div className="p-2.5 rounded-lg bg-[#0d1117] border border-[#6366f1]/20 space-y-2">
+              <p className="text-[10px] font-semibold text-[#6366f1]">Parcelamento no cartão</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-[#4a5568] block mb-1">Parcela atual</label>
+                  <input
+                    type="number" min="1"
+                    value={dInstallmentCurrent}
+                    onChange={e => setDInstallmentCurrent(e.target.value)}
+                    placeholder="ex: 2"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-[#4a5568] block mb-1">Total de parcelas</label>
+                  <input
+                    type="number" min="1"
+                    value={dInstallments}
+                    onChange={e => setDInstallments(e.target.value)}
+                    placeholder="ex: 6"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+              {dInstallmentCurrent && dInstallments && (
+                <p className="text-[10px] text-[#6366f1]">
+                  Parcela {dInstallmentCurrent} de {dInstallments}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Buttons */}
           <div className="flex gap-2 pt-1">
