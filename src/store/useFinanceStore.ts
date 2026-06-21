@@ -394,6 +394,27 @@ export const useFinanceStore = create<FinanceStore>()(
               }
               newMonth.bills = carried
 
+              // Carry CC installment daily expenses to the new month
+              const carriedExpenses: DailyExpense[] = []
+              for (const expense of prevMonth.dailyExpenses ?? []) {
+                if (expense.conta !== 'cartao_credito') continue
+                if (!expense.installments || !expense.installmentCurrent) continue
+                if (expense.installmentCurrent >= expense.installments) continue
+                const origDay = parseInt(expense.date.split('-')[2], 10)
+                const lastDay = new Date(year, month, 0).getDate()
+                const day = Math.min(origDay, lastDay)
+                const newDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                carriedExpenses.push({
+                  ...expense,
+                  id: generateId(),
+                  date: newDate,
+                  installmentCurrent: expense.installmentCurrent + 1,
+                })
+              }
+              if (carriedExpenses.length > 0) {
+                newMonth.dailyExpenses = carriedExpenses
+              }
+
               // Create fatura for CC expenses from the previous month
               const ccTotal = Math.round(
                 (prevMonth.dailyExpenses ?? [])

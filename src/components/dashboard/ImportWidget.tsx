@@ -6,7 +6,7 @@ import { formatBRL } from '@/lib/utils'
 import { Upload, X, Download, CheckCircle, AlertCircle, FileSpreadsheet, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// ─── CSV Parser ───────────────────────────────────────────────────────────────
+// ─── CSV / XLSX Parser ────────────────────────────────────────────────────────
 
 const VALID_CATEGORIES: DailyExpenseCategory[] = ['alimentacao','transporte','lazer','saude','servico','compras','outro']
 const VALID_TIPOS = ['custo','lazer','investimento']
@@ -65,11 +65,14 @@ function parseCSV(text: string): ParsedRow[] {
     const cat = sanitize(categoria ?? '').toLowerCase() as DailyExpenseCategory
     const resolvedCat: DailyExpenseCategory = VALID_CATEGORIES.includes(cat) ? cat : 'outro'
 
-    const tip = sanitize(tipo ?? '').toLowerCase()
-    if (!VALID_TIPOS.includes(tip)) errors.push(`Tipo inválido: "${tipo}" (use: custo, lazer, investimento)`)
+    // tipo and conta are optional — use defaults silently if missing/empty
+    const tipRaw = sanitize(tipo ?? '').toLowerCase()
+    const resolvedTipo: ImportRow['tipo'] = VALID_TIPOS.includes(tipRaw) ? tipRaw as ImportRow['tipo'] : 'custo'
+    if (tipRaw && !VALID_TIPOS.includes(tipRaw)) errors.push(`Tipo inválido: "${tipo}" (use: custo, lazer, investimento)`)
 
-    const cnt = sanitize(conta ?? '').toLowerCase()
-    if (!VALID_CONTAS.includes(cnt)) errors.push(`Conta inválida: "${conta}" (use: operacional, usdt, cartao_credito)`)
+    const cntRaw = sanitize(conta ?? '').toLowerCase()
+    const resolvedConta: ImportRow['conta'] = VALID_CONTAS.includes(cntRaw) ? cntRaw as ImportRow['conta'] : 'operacional'
+    if (cntRaw && !VALID_CONTAS.includes(cntRaw)) errors.push(`Conta inválida: "${conta}" (use: operacional, usdt, cartao_credito)`)
 
     const rawSt = sanitize(rawStatus ?? '')
     const status = (rawSt.toLowerCase() === 'pendente' ? 'pendente' : 'pago') as 'pago' | 'pendente'
@@ -79,8 +82,8 @@ function parseCSV(text: string): ParsedRow[] {
       description: descricao?.trim() ?? '',
       amount: isNaN(amount) ? 0 : amount,
       category: resolvedCat,
-      tipo: VALID_TIPOS.includes(tip) ? tip as ImportRow['tipo'] : 'custo',
-      conta: VALID_CONTAS.includes(cnt) ? cnt as ImportRow['conta'] : 'operacional',
+      tipo: resolvedTipo,
+      conta: resolvedConta,
       status,
     }
 
@@ -115,18 +118,36 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback((file: File) => {
-    if (!file.name.endsWith('.csv')) {
-      alert('Por favor, selecione um arquivo .csv')
+    const name = file.name.toLowerCase()
+    const isCSV  = name.endsWith('.csv')
+    const isXLSX = name.endsWith('.xlsx') || name.endsWith('.xls')
+
+    if (!isCSV && !isXLSX) {
+      alert('Por favor, selecione um arquivo .csv ou .xlsx')
       return
     }
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const text = e.target?.result as string
-      const parsed = parseCSV(text)
-      setRows(parsed)
-      setStep('preview')
+
+    if (isCSV) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const text = e.target?.result as string
+        setRows(parseCSV(text))
+        setStep('preview')
+      }
+      reader.readAsText(file, 'utf-8')
+    } else {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const buffer = e.target?.result as ArrayBuffer
+        const XLSX = await import('xlsx')
+        const wb   = XLSX.read(buffer, { type: 'array' })
+        const ws   = wb.Sheets[wb.SheetNames[0]]
+        const csv  = XLSX.utils.sheet_to_csv(ws)
+        setRows(parseCSV(csv))
+        setStep('preview')
+      }
+      reader.readAsArrayBuffer(file)
     }
-    reader.readAsText(file, 'utf-8')
   }, [])
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -159,7 +180,7 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
             <div>
               <p className="text-sm font-bold text-[#e8ecf4]">Importar Gastos</p>
               <p className="text-xs text-[#4a5568]">
-                {step === 'upload' && 'Selecione o arquivo CSV'}
+                {step === 'upload' && 'Selecione um arquivo CSV ou XLSX'}
                 {step === 'preview' && `${rows.length} linhas encontradas · ${validRows.length} válidas`}
                 {step === 'done' && 'Importação concluída'}
               </p>
@@ -189,10 +210,10 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
               >
                 <Upload size={32} className={dragging ? 'text-[#00d4a0]' : 'text-[#4a5568]'} />
                 <div className="text-center">
-                  <p className="text-sm font-medium text-[#e8ecf4]">Arraste o CSV ou clique para selecionar</p>
-                  <p className="text-xs text-[#4a5568] mt-1">Apenas arquivos .csv</p>
+                  <p className="text-sm font-medium text-[#e8ecf4]">Arraste o arquivo ou clique para selecionar</p>
+                  <p className="text-xs text-[#4a5568] mt-1">Formatos aceitos: .csv · .xlsx · .xls</p>
                 </div>
-                <input ref={fileRef} type="file" accept=".csv" className="hidden"
+                <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
               </div>
 
@@ -218,16 +239,19 @@ export function ImportWidget({ onClose }: { onClose: () => void }) {
                 <p className="text-xs font-semibold text-[#8898aa] uppercase tracking-wider">Colunas esperadas</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { col: 'data', ex: '12/05/2025' },
-                    { col: 'descricao', ex: 'Uber' },
-                    { col: 'valor', ex: '45.00' },
-                    { col: 'categoria', ex: 'alimentacao / transporte / lazer / saude / servico / compras / outro' },
-                    { col: 'tipo', ex: 'custo / lazer / investimento' },
-                    { col: 'conta', ex: 'operacional / usdt / cartao_credito' },
-                    { col: 'status', ex: 'pago / pendente' },
-                  ].map(({ col, ex }) => (
+                    { col: 'data',      ex: '12/05/2025',           optional: false },
+                    { col: 'descricao', ex: 'Uber',                  optional: false },
+                    { col: 'valor',     ex: '45.00',                 optional: false },
+                    { col: 'categoria', ex: 'alimentacao / transporte / lazer…', optional: false },
+                    { col: 'tipo',      ex: 'custo / lazer / investimento',      optional: true  },
+                    { col: 'conta',     ex: 'operacional / usdt / cartao_credito', optional: true  },
+                    { col: 'status',    ex: 'pago / pendente',       optional: true  },
+                  ].map(({ col, ex, optional }) => (
                     <div key={col} className="bg-[#0d1117] rounded-lg p-2 border border-[#1a2030]">
-                      <p className="text-xs font-mono font-bold text-[#00d4a0]">{col}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-mono font-bold text-[#00d4a0]">{col}</p>
+                        {optional && <span className="text-[9px] text-[#4a5568] border border-[#1a2030] rounded px-1">opcional</span>}
+                      </div>
                       <p className="text-xs text-[#4a5568] mt-0.5 truncate">{ex}</p>
                     </div>
                   ))}

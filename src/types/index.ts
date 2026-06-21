@@ -135,6 +135,9 @@ export interface DailyExpense {
   conta: DailyExpenseConta
   tipo?: DailyExpenseTipo  // custo = Despesas, lazer = Lazer, investimento = Investimentos
   notes?: string
+  installments?: number        // total installments (CC parcelado), e.g. 6
+  installmentCurrent?: number  // 1-based current installment
+  installmentGroupId?: string  // links all installments of the same purchase
 }
 
 export interface MonthlyData {

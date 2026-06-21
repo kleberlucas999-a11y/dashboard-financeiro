@@ -2,13 +2,14 @@
 import { useState, useMemo } from 'react'
 import { useFinanceStore } from '@/store/useFinanceStore'
 import { Bill, DailyExpense, DailyExpenseCategory, DailyExpenseConta, DailyExpenseTipo } from '@/types'
+import { generateId } from '@/lib/utils'
 import { ImportWidget } from '@/components/dashboard/ImportWidget'
 import {
   Plus, Trash2, Utensils, Car, Smile, Heart, Wrench,
   ShoppingBag, MoreHorizontal, Wallet, CreditCard, Bitcoin,
   ChevronDown, ChevronUp, Upload, Search, X, TrendingDown,
   TrendingUp, BarChart3, Filter, CheckSquare, Square, CheckCheck,
-  Pencil, Check,
+  Pencil, Check, Layers,
 } from 'lucide-react'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -230,15 +231,27 @@ function AddExpenseForm({ monthId, onDone }: { monthId: string; onDone: () => vo
   const [conta, setConta]             = useState<DailyExpenseConta>('operacional')
   const [tipo, setTipo]               = useState<DailyExpenseTipo>('custo')
   const [notes, setNotes]             = useState('')
+  const [isParcelado, setIsParcelado] = useState(false)
+  const [numParcelas, setNumParcelas] = useState('2')
 
-  const isUsdt = conta === 'usdt'
-  const parsedAmount = parseFloat(amount.replace(',', '.'))
+  const isUsdt    = conta === 'usdt'
+  const isCC      = conta === 'cartao_credito'
+  const parsedAmount  = parseFloat(amount.replace(',', '.'))
+  const parsedParcelas = parseInt(numParcelas, 10)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!description.trim() || isNaN(parsedAmount) || parsedAmount <= 0) return
-    addDailyExpense(monthId, { date, description: description.trim(), amount: parsedAmount, category, conta, tipo, notes: notes.trim() || undefined })
-    setDescription(''); setAmount(''); setNotes('')
+
+    const installments = isParcelado && isCC && parsedParcelas >= 2 ? parsedParcelas : undefined
+    addDailyExpense(monthId, {
+      date, description: description.trim(), amount: parsedAmount,
+      category, conta, tipo, notes: notes.trim() || undefined,
+      installments,
+      installmentCurrent: installments ? 1 : undefined,
+      installmentGroupId: installments ? generateId() : undefined,
+    })
+    setDescription(''); setAmount(''); setNotes(''); setIsParcelado(false)
     onDone()
   }
 
@@ -325,6 +338,43 @@ function AddExpenseForm({ monthId, onDone }: { monthId: string; onDone: () => vo
         <input type="text" placeholder="Nota rápida" value={notes} onChange={e => setNotes(e.target.value)}
           className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-3 py-2 text-sm text-[#e8ecf4] focus:outline-none focus:border-[#00d4a0]/50" />
       </div>
+
+      {/* Parcelamento — only when Cartão de Crédito is selected */}
+      {isCC && (
+        <div className="p-3 rounded-xl bg-[#07090d] border border-[#6366f1]/20 space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" checked={isParcelado} onChange={e => setIsParcelado(e.target.checked)}
+              className="w-4 h-4 rounded accent-[#6366f1] cursor-pointer" />
+            <span className="text-xs text-[#8898aa]">Parcelado no cartão</span>
+          </label>
+          {isParcelado && (
+            <div className="pl-6 space-y-2">
+              <div className="flex items-center gap-3">
+                <div>
+                  <label className="text-xs text-[#4a5568] block mb-1">Parcelas</label>
+                  <input type="number" min="2" max="48" value={numParcelas}
+                    onChange={e => setNumParcelas(e.target.value)}
+                    className="w-20 bg-[#0d1117] border border-[#1a2030] rounded-lg px-3 py-1.5 text-sm text-[#e8ecf4] focus:outline-none focus:border-[#6366f1]/50"
+                  />
+                </div>
+                {!isNaN(parsedAmount) && parsedAmount > 0 && parsedParcelas >= 2 && (
+                  <div className="pt-4">
+                    <p className="text-xs text-[#6366f1] font-semibold">
+                      {parsedParcelas}x de {fmtBRL(parsedAmount)}
+                    </p>
+                    <p className="text-[10px] text-[#4a5568]">
+                      Total {fmtBRL(parsedAmount * parsedParcelas)}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-[#4a5568]">
+                O valor informado é o de cada parcela. As próximas parcelas serão lançadas automaticamente nos meses seguintes.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button type="submit"
@@ -423,7 +473,14 @@ function ExpenseRow({
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-[#e8ecf4] truncate">{expense.description}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm text-[#e8ecf4] truncate">{expense.description}</p>
+            {expense.installments && expense.installmentCurrent && (
+              <span className="shrink-0 text-[10px] font-bold text-[#6366f1] bg-[#6366f1]/15 border border-[#6366f1]/30 rounded px-1.5 py-0.5">
+                {expense.installmentCurrent}/{expense.installments}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-[10px] text-[#4a5568] font-mono">{fmtDate(expense.date)}</span>
             <span className="text-[10px] text-[#1a2030]">·</span>
@@ -593,7 +650,7 @@ function ExpenseRow({
 // ─── Main widget ─────────────────────────────────────────────────────────────
 
 export function DailyExpensesWidget() {
-  const { currentMonthId, months, exchangeRate, deleteDailyExpenses } = useFinanceStore()
+  const { currentMonthId, months, exchangeRate, deleteDailyExpenses, updateDailyExpense } = useFinanceStore()
   const month    = months[currentMonthId]
   const expenses = useMemo(() => month?.dailyExpenses ?? [], [month])
 
@@ -628,6 +685,12 @@ export function DailyExpensesWidget() {
   const [selectMode,   setSelectMode]   = useState(false)
   const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set())
   const [confirmBulk,  setConfirmBulk]  = useState(false)
+
+  // ── Bulk edit ─────────────────────────────────────────────────────────────
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
+  const [bulkTipo,     setBulkTipo]     = useState<DailyExpenseTipo | 'nao_alterar'>('nao_alterar')
+  const [bulkConta,    setBulkConta]    = useState<DailyExpenseConta | 'nao_alterar'>('nao_alterar')
+  const [bulkCat,      setBulkCat]      = useState<DailyExpenseCategory | 'nao_alterar'>('nao_alterar')
 
   const hasActiveFilter = search || filterTipo !== 'todas' || filterCat !== 'todas' || filterConta !== 'todas' || dateFrom || dateTo
 
@@ -682,11 +745,26 @@ export function DailyExpensesWidget() {
     setSelectMode(false)
     setSelectedIds(new Set())
     setConfirmBulk(false)
+    setBulkEditOpen(false)
+    setBulkTipo('nao_alterar'); setBulkConta('nao_alterar'); setBulkCat('nao_alterar')
   }
 
   const handleBulkDelete = () => {
     deleteDailyExpenses(currentMonthId, Array.from(selectedIds))
     exitSelectMode()
+  }
+
+  const applyBulkEdit = () => {
+    const updates: Partial<DailyExpense> = {}
+    if (bulkTipo  !== 'nao_alterar') updates.tipo     = bulkTipo
+    if (bulkConta !== 'nao_alterar') updates.conta    = bulkConta
+    if (bulkCat   !== 'nao_alterar') updates.category = bulkCat
+    if (Object.keys(updates).length === 0) return
+    for (const id of selectedIds) {
+      updateDailyExpense(currentMonthId, id, updates)
+    }
+    setBulkEditOpen(false)
+    setBulkTipo('nao_alterar'); setBulkConta('nao_alterar'); setBulkCat('nao_alterar')
   }
 
   // Total value of selected items
@@ -775,6 +853,18 @@ export function DailyExpensesWidget() {
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Bulk edit toggle */}
+            {someSelected && !confirmBulk && (
+              <button onClick={() => setBulkEditOpen(v => !v)}
+                className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${
+                  bulkEditOpen
+                    ? 'text-[#6366f1] bg-[#6366f1]/15 border-[#6366f1]/40'
+                    : 'text-[#8898aa] bg-transparent border-[#1a2030] hover:text-[#e8ecf4] hover:border-[#243048]'
+                }`}>
+                <Layers size={13} /> Editar em massa
+              </button>
+            )}
+
             {/* Confirm delete */}
             {someSelected && !confirmBulk && (
               <button onClick={() => setConfirmBulk(true)}
@@ -804,6 +894,53 @@ export function DailyExpensesWidget() {
               <X size={12} /> Cancelar
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Bulk edit panel ──────────────────────────────────────── */}
+      {selectMode && someSelected && bulkEditOpen && (
+        <div className="bg-[#0d1117] border border-[#6366f1]/30 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-[#6366f1]">
+            Edição em massa · {selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selecionado{selectedIds.size !== 1 ? 's' : ''}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-[#4a5568] block mb-1">Tipo</label>
+              <select value={bulkTipo} onChange={e => setBulkTipo(e.target.value as DailyExpenseTipo | 'nao_alterar')}
+                className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-2.5 py-2 text-xs text-[#e8ecf4] focus:outline-none focus:border-[#6366f1]/50">
+                <option value="nao_alterar">— não alterar —</option>
+                <option value="custo">Despesa</option>
+                <option value="lazer">Lazer</option>
+                <option value="investimento">Investimento</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-[#4a5568] block mb-1">Conta</label>
+              <select value={bulkConta} onChange={e => setBulkConta(e.target.value as DailyExpenseConta | 'nao_alterar')}
+                className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-2.5 py-2 text-xs text-[#e8ecf4] focus:outline-none focus:border-[#6366f1]/50">
+                <option value="nao_alterar">— não alterar —</option>
+                {(Object.keys(CONTA_LABELS) as DailyExpenseConta[]).map(c => (
+                  <option key={c} value={c}>{CONTA_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-[#4a5568] block mb-1">Categoria</label>
+              <select value={bulkCat} onChange={e => setBulkCat(e.target.value as DailyExpenseCategory | 'nao_alterar')}
+                className="w-full bg-[#07090d] border border-[#1a2030] rounded-lg px-2.5 py-2 text-xs text-[#e8ecf4] focus:outline-none focus:border-[#6366f1]/50">
+                <option value="nao_alterar">— não alterar —</option>
+                {(Object.keys(CATEGORY_LABELS) as DailyExpenseCategory[]).map(c => (
+                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={applyBulkEdit}
+            disabled={bulkTipo === 'nao_alterar' && bulkConta === 'nao_alterar' && bulkCat === 'nao_alterar'}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#6366f1]/10 hover:bg-[#6366f1]/20 border border-[#6366f1]/30 text-[#6366f1] text-xs font-semibold cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+            <Check size={13} /> Aplicar em {selectedIds.size} selecionado{selectedIds.size !== 1 ? 's' : ''}
+          </button>
         </div>
       )}
 
